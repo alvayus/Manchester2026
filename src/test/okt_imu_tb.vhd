@@ -5,7 +5,8 @@ USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
 
 use work.okt_imu_pkg.ALL;
-use work.global_pkg.ALL;
+use work.okt_global_pkg.ALL;
+use work.okt_top_pkg.all;
 
 ENTITY okt_imu_tb IS
 END okt_imu_tb;

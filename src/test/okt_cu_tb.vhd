@@ -32,10 +32,10 @@ USE ieee.std_logic_1164.ALL;
 -- arithmetic functions with Signed or Unsigned values
 --USE ieee.numeric_std.ALL;
  
-ENTITY controller_tb IS
-END controller_tb;
+ENTITY okt_cu_tb IS
+END okt_cu_tb;
  
-ARCHITECTURE behavior OF controller_tb IS 
+ARCHITECTURE behavior OF okt_cu_tb IS 
  
     -- Component Declaration for the Unit Under Test (UUT)
  
