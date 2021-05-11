@@ -1,7 +1,7 @@
 
 LIBRARY ieee;
 USE ieee.std_logic_1164.all;
-use ieee.std_logic_unsigned.all;
+use ieee.std_logic_unsigned.all; -- @suppress "Deprecated package"
 use work.okt_global_pkg.all;
 
 ENTITY okt_ecu_tb IS
@@ -23,7 +23,6 @@ ARCHITECTURE behavior OF okt_ecu_tb IS
     signal out_data  : std_logic_vector(BUFFER_BITS_WIDTH-1 downto 0);
     signal out_rd : std_logic;
     signal out_ready : std_logic;
-    signal status    : std_logic;
 
     -- Clock period definitions
     constant CLK_period : time := 20 ns;
@@ -34,7 +33,7 @@ ARCHITECTURE behavior OF okt_ecu_tb IS
 BEGIN
 
     -- Instantiate the Unit Under Test (UUT)
-    okt_imu : entity work.okt_ecu
+    okt_ecu : entity work.okt_ecu
         PORT MAP(
             clk       => clk,
             rst_n     => rst_n,
@@ -43,8 +42,7 @@ BEGIN
             ack_n     => ack_n,
             out_data  => out_data,
             out_rd    => out_rd,
-            out_ready => out_ready,
-            status    => status
+            out_ready => out_ready
         );
 
     -- Clock process definitions

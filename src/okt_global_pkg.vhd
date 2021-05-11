@@ -2,7 +2,6 @@
 library ieee;
 use ieee.STD_LOGIC_1164.all;
 use ieee.math_real.all;
-use work.okt_imu_pkg.all;
 
 package okt_global_pkg is
     constant BUFFER_BITS_WIDTH         : integer := 32;

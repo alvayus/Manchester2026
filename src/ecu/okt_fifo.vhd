@@ -69,6 +69,7 @@ begin
                 end if;
 
                 -- Handle the read enable line
+                output <= registers(to_integer(read_addr));
                 if r_en = '1' then
                     if ((read_addr = write_addr) and (r_full = '0')) then
                         output <= std_logic_vector(to_unsigned(0, r_data'length));
