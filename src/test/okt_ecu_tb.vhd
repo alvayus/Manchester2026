@@ -20,7 +20,7 @@ ARCHITECTURE behavior OF okt_ecu_tb IS
 
     --Outputs
     signal ack_n     : std_logic;
-    signal out_data  : std_logic_vector(BUFFER_BITS_WIDTH-1 downto 0);
+    signal out_data  : std_logic_vector(BUFFER_BITS_WIDTH-1 downto 0); -- @suppress "signal out_data is never read"
     signal out_rd : std_logic;
     signal out_ready : std_logic;
 

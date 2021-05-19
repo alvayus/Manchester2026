@@ -47,7 +47,7 @@ architecture Behavioral of okt_cu is
 	signal ep01wire         : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
 	signal epA0_datain      : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
 	signal epA0_read        : std_logic;
-	signal epA0_blockstrobe : std_logic;
+	signal epA0_blockstrobe : std_logic; -- @suppress "signal epA0_blockstrobe is never read"
 	signal epA0_ready       : std_logic;
 
 	signal status_n : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
@@ -59,6 +59,8 @@ begin
 	n_ecu_ready <= ecu_ready;
 
 	status <= status_n;
+
+	input_sel <= n_input_sel;
 
 	okHI : entity work.okHost
 		port map(
@@ -88,7 +90,6 @@ begin
 			ep_addr    => x"00",
 			ep_dataout => ep00wire
 		);
-	n_command <= ep00wire(COMMAND_BIT_WIDTH - 1 downto 0);
 
 	-- WireIn to receive IMU input_sel from USB
 	selInput_EP : entity work.okWireIn
@@ -97,8 +98,6 @@ begin
 			ep_addr    => x"01",
 			ep_dataout => ep01wire
 		);
-	n_input_sel <= ep01wire(NUM_INPUTS - 1 downto 0);
-	input_sel   <= n_input_sel;
 
 	-- PipeOut to send data out using the USB
 	data_out_EP : entity work.okBTPipeOut
@@ -112,16 +111,28 @@ begin
 			ep_ready       => epA0_ready
 		);
 
+	-- Reset command and input_sel signals
+	process(rst_n, ep00wire, ep01wire)
+	begin
+		if (rst_n = '0') then
+			n_command   <= (others => '0');
+			n_input_sel <= (others => '0');
+		else
+			n_command   <= ep00wire(COMMAND_BIT_WIDTH - 1 downto 0);
+			n_input_sel <= ep01wire(NUM_INPUTS - 1 downto 0);
+		end if;
+	end process;
+
 	-- Multiplexer that select the data path depending of the command
 	command_multiplexer : process(n_command, epA0_read, n_ecu_data, n_ecu_ready)
 	begin
-		case  n_command is
-			when "01" => -- ECU command. Send out captured event to USB
+		case n_command is
+			when "01" =>                -- ECU command. Send out captured event to USB
 				n_ecu_rd    <= epA0_read;
 				epA0_datain <= n_ecu_data;
 				epA0_ready  <= n_ecu_ready;
-				status_n(0) <= '1';         -- Set ECU led
-				
+				status_n(0) <= '1';     -- Set ECU led
+
 			when others =>
 				n_ecu_rd    <= '0';
 				epA0_datain <= (others => '0');

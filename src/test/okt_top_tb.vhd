@@ -13,16 +13,15 @@
 --------------------------------------------------------------------------------
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_arith.all;
-use IEEE.std_logic_unsigned.all;
+use IEEE.std_logic_arith.all; -- @suppress "Deprecated package"
+use IEEE.std_logic_unsigned.all; -- @suppress "Deprecated package"
 use IEEE.std_logic_textio.all;
 USE ieee.numeric_std.ALL;
-use work.FrontPanel.all;
+use work.FRONTPANEL.all;
 use work.okt_top_pkg.all;
 use work.okt_global_pkg.all;
 use work.okt_imu_pkg.all;
 
-library std;
 use std.textio.all;
 
 use work.mappings.all;
@@ -33,7 +32,7 @@ end okt_top_tb;
 
 architecture simulate of okt_top_tb is
 
-	signal leds : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
+	signal leds : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0); -- @suppress "signal leds is never read"
 
 	-- FrontPanel Host --------------------------------------------------------------------------
 
@@ -55,11 +54,11 @@ architecture simulate of okt_top_tb is
 	signal hi_datain  : std_logic_vector(31 downto 0) := x"00000000";
 	signal hi_dataout : std_logic_vector(31 downto 0) := x"00000000";
 
-	signal sys_clkp : std_logic;
-	signal sys_clkn : std_logic;
+	signal sys_clkp : std_logic; -- @suppress "signal sys_clkp is never read"
+	signal sys_clkn : std_logic; -- @suppress "signal sys_clkn is never read"
 
 	-- Clocks
-	signal sys_clk : std_logic := '0';
+	signal sys_clk : std_logic := '0'; -- @suppress "signal sys_clk is never read"
 
 	-- Reset
 	signal rst, rst_n : std_logic;
@@ -74,7 +73,7 @@ architecture simulate of okt_top_tb is
 	signal node_data    : std_logic_vector(NODE_DATA_BITS_WIDTH - 1 downto 0);
 	signal node_req_n   : std_logic;
 	signal node_ack_n   : std_logic;
-	signal out_data     : std_logic_vector(NODE_DATA_BITS_WIDTH - 1 downto 0);
+	signal out_data     : std_logic_vector(NODE_DATA_BITS_WIDTH - 1 downto 0); -- @suppress "signal out_data is never read"
 	signal out_req_n    : std_logic;
 	signal out_ack_n    : std_logic;
 
@@ -129,9 +128,9 @@ begin
 	hi_clk_gen : process is
 	begin
 		hi_clk <= '0';
-		wait for tCk;
+		wait for tCK;
 		hi_clk <= '1';
-		wait for tCk;
+		wait for tCK;
 	end process hi_clk_gen;
 
 	sys_clk_gen : process is
