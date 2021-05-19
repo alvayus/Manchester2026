@@ -5,6 +5,7 @@ use work.okt_global_pkg.all;
 use work.okt_cu_pkg.all;
 use work.okt_imu_pkg.all;
 use work.okt_top_pkg.all;
+use work.FRONTPANEL.all;
 
 entity okt_cu is                        -- Control Unit
 	Port(
@@ -62,7 +63,7 @@ begin
 
 	input_sel <= n_input_sel;
 
-	okHI : entity work.okHost
+	okHI : work.FRONTPANEL.okHost
 		port map(
 			okUH  => okUH,
 			okHU  => okHU,
@@ -74,7 +75,7 @@ begin
 		);
 	clk <= okClk;
 
-	okOR : entity work.okWireOR
+	okOR : work.FRONTPANEL.okWireOR
 		generic map(
 			N => OK_NUM_okEHx_END_POINTS
 		)
@@ -84,7 +85,7 @@ begin
 		);
 
 	-- WireIn to receive command from USB
-	cmd_EP : entity work.okWireIn
+	cmd_EP : work.FRONTPANEL.okWireIn
 		port map(
 			okHE       => okHE,
 			ep_addr    => x"00",
@@ -92,7 +93,7 @@ begin
 		);
 
 	-- WireIn to receive IMU input_sel from USB
-	selInput_EP : entity work.okWireIn
+	selInput_EP : work.FRONTPANEL.okWireIn
 		port map(
 			okHE       => okHE,
 			ep_addr    => x"01",
@@ -100,7 +101,7 @@ begin
 		);
 
 	-- PipeOut to send data out using the USB
-	data_out_EP : entity work.okBTPipeOut
+	data_out_EP : work.FRONTPANEL.okBTPipeOut
 		port map(
 			okHE           => okHE,
 			okEH           => okEHx(1 * OK_EH_WIDTH_BUS - 1 downto 0 * OK_EH_WIDTH_BUS),
