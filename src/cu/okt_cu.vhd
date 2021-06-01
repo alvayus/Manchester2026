@@ -11,6 +11,7 @@ entity okt_cu is                        -- Control Unit
 	Port(
 		clk       : out   std_logic;    -- 100.8 MHz
 		rst_n     : in    std_logic;
+		rst_sw    : out   std_logic;    -- sw rst coming from the USB trigger end-point
 		-- USB 3.0 interface
 		okUH      : in    std_logic_vector(OK_UH_WIDTH_BUS - 1 downto 0);
 		okHU      : out   std_logic_vector(OK_HU_WIDTH_BUS - 1 downto 0);
@@ -50,6 +51,7 @@ architecture Behavioral of okt_cu is
 	signal epA0_read        : std_logic;
 	signal epA0_blockstrobe : std_logic; -- @suppress "signal epA0_blockstrobe is never read"
 	signal epA0_ready       : std_logic;
+	signal ep40trigger      : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
 
 	signal status_n : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
 
@@ -111,6 +113,16 @@ begin
 			ep_datain      => epA0_datain,
 			ep_ready       => epA0_ready
 		);
+
+	-- Trigger to get a rst signal from the software
+	rst_sw_EP : work.FRONTPANEL.okTriggerIn
+		port map(
+			okHE       => okHE,
+			ep_addr    => x"40",
+			ep_clk     => okClk,
+			ep_trigger => ep40trigger
+		);
+	rst_sw <= ep40trigger(0);
 
 	-- Reset command and input_sel signals
 	process(rst_n, ep00wire, ep01wire)

@@ -40,7 +40,8 @@ architecture Behavioral of okt_top is
 
 	signal okClk : std_logic;
 	signal rst_n : std_logic;
-
+	signal rst_sw : std_logic;
+	
 	signal rome_a_req_latch_0 : std_logic;
 	signal rome_a_req_latch_1 : std_logic;
 	signal rome_b_req_latch_0 : std_logic;
@@ -75,7 +76,7 @@ begin
 
 	-- 0 = led on; 1 = led off 
 	leds  <= not status_n;
-	rst_n <= not rst;
+	rst_n <= not (rst or rst_sw);
 
 	-- Sync input signals
 	syncronizer : process(okClk, rst_n)
@@ -119,6 +120,7 @@ begin
 		port map(
 			clk       => okClk,
 			rst_n     => rst_n,
+			rst_sw    => rst_sw,
 			okUH      => okUH,
 			okHU      => okHU,
 			okUHU     => okUHU,
