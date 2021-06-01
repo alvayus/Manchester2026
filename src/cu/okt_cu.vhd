@@ -122,7 +122,8 @@ begin
 			ep_clk     => okClk,
 			ep_trigger => ep40trigger
 		);
-	rst_sw <= ep40trigger(0);
+	rst_sw      <= ep40trigger(0);
+	status_n(0) <= ep40trigger(0);
 
 	-- Reset command and input_sel signals
 	process(rst_n, ep00wire, ep01wire)
@@ -144,7 +145,7 @@ begin
 				n_ecu_rd    <= epA0_read;
 				epA0_datain <= n_ecu_data;
 				epA0_ready  <= n_ecu_ready;
-				status_n(0) <= '1';     -- Set ECU led
+				status_n(1) <= '1';     -- Set ECU led
 
 			when others =>
 				n_ecu_rd    <= '0';
