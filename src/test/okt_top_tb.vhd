@@ -851,6 +851,18 @@ begin
 
 		wait;
 	end process sim_process;
+	
+--	input_process : process is
+--		procedure input_management is
+--			variable line_v : line;
+--    		file read_file : text;
+--    		
+--		begin
+--			file_open(read_file, "source.txt", read_mode);
+--		end procedure;
+--	begin
+--		
+--	end process input_process;
 
 	signals_update : process(hi_clk, rst_n)
 	begin

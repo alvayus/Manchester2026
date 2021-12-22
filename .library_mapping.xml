@@ -2,9 +2,14 @@
 <com.sigasi.hdt.shared.librarymapping.model:LibraryMappings xmlns:com.sigasi.hdt.shared.librarymapping.model="com.sigasi.hdt.vhdl.scoping.librarymapping" Version="2">
   <Mappings Location="Common Libraries/IEEE" Library="ieee"/>
   <Mappings Location="Common Libraries/IEEE Synopsys" Library="ieee"/>
+  <Mappings Location="AER_emitter" Library="not mapped"/>
   <Mappings Location="Common Libraries" Library="not mapped"/>
   <Mappings Location="FrontPanel-Ubuntu18.04LTS-x64-5.2.3" Library="not mapped"/>
+  <Mappings Location="ise" Library="not mapped"/>
+  <Mappings Location="python_lib" Library="not mapped"/>
+  <Mappings Location="src/constraints" Library="not mapped"/>
   <Mappings Location="src/top" Library="not mapped"/>
+  <Mappings Location="usbaermini2_linux" Library="not mapped"/>
   <Mappings Location="vivado" Library="not mapped"/>
   <Mappings Location="Common Libraries/STD" Library="std"/>
   <Mappings Location="Common Libraries/unisim" Library="unisim"/>

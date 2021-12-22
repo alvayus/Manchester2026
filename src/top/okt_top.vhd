@@ -15,7 +15,7 @@ entity okt_top is
 		okHU         : out   std_logic_vector(OK_HU_WIDTH_BUS - 1 downto 0);
 		okUHU        : inout std_logic_vector(OK_UHU_WIDTH_BUS - 1 downto 0);
 		okAA         : inout std_logic;
-		-- AER interfaces
+		-- AER INPUT interfaces
 		rome_a_data  : in    std_logic_vector(ROME_DATA_BITS_WIDTH - 1 downto 0);
 		rome_a_req_n : in    std_logic;
 		rome_a_ack_n : out   std_logic;
@@ -25,9 +25,7 @@ entity okt_top is
 		node_data    : in    std_logic_vector(NODE_DATA_BITS_WIDTH - 1 downto 0);
 		node_req_n   : in    std_logic;
 		node_ack_n   : out   std_logic;
-		--        spinnaker_data  : in    std_logic_vector(SPINNAKER_BITS_DATA_WIDTH - 1 downto 0);
-		--        spinnaker_req_n : in    std_logic;
-		--        spinnaker_ack_n : out   std_logic;
+		-- AER OUTPUT interface
 		out_data     : out   std_logic_vector(NODE_DATA_BITS_WIDTH - 1 downto 0);
 		out_req_n    : out   std_logic;
 		out_ack_n    : in    std_logic;
@@ -48,10 +46,6 @@ architecture Behavioral of okt_top is
 	signal rome_b_req_latch_1 : std_logic;
 	signal node_req_latch_0   : std_logic;
 	signal node_req_latch_1   : std_logic;
-	--    signal spinn_req_latch_0  : std_logic;
-	--    signal spinn_req_latch_1  : std_logic;
-	--    signal out_ack_latch_0    : std_logic;
-	--    signal out_ack_latch_1    : std_logic;
 
 	signal ecu_data  : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
 	signal ecu_rd    : std_logic;
@@ -63,14 +57,6 @@ architecture Behavioral of okt_top is
 	signal imu_ack_n    : std_logic;
 
 	signal status_n : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
-
-	-- This imu inputs are not use
-	signal in3_data  : std_logic_vector(BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto 0);
-	signal in3_req_n : std_logic;
-	signal in3_ack_n : std_logic;
-	signal in4_data  : std_logic_vector(BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto 0);
-	signal in4_req_n : std_logic;
-	signal in4_ack_n : std_logic;
 
 begin
 
@@ -88,10 +74,6 @@ begin
 			rome_b_req_latch_1 <= '1';
 			node_req_latch_0   <= '1';
 			node_req_latch_1   <= '1';
-		--            spinn_req_latch_0  <= '0';
-		--            spinn_req_latch_1  <= '0';
-		--            out_ack_latch_0    <= '0';
-		--            out_ack_latch_1    <= '0';
 
 		elsif rising_edge(okClk) then
 			rome_a_req_latch_0 <= rome_a_req_n;
@@ -100,18 +82,11 @@ begin
 			rome_b_req_latch_1 <= rome_b_req_latch_0;
 			node_req_latch_0   <= node_req_n;
 			node_req_latch_1   <= node_req_latch_0;
-			--            spinn_req_latch_0  <= spinnaker_req_n;
-			--            spinn_req_latch_1  <= spinn_req_latch_0;
-			--            out_ack_latch_0    <= out_ack_n;
-			--            out_ack_latch_1    <= out_ack_latch_0;
+
 		end if;
 	end process;
 
-	-- TODO Input 3,4 and output are not used yet. Change once these input are used.
-	in3_data  <= (others => '0');
-	in3_req_n <= '1';
-	in4_data  <= (others => '0');
-	in4_req_n <= '1';
+	-- TODO Output is not used yet.
 	out_data  <= (others => '0');
 	out_req_n <= '1';
 	-------------------------------------
@@ -145,12 +120,6 @@ begin
 			in2_data     => (BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto node_data'length => '0') & node_data,
 			in2_req_n    => node_req_latch_1,
 			in2_ack_n    => node_ack_n,
-			in3_data     => in3_data,
-			in3_req_n    => in3_req_n,
-			in3_ack_n    => in3_ack_n,
-			in4_data     => in4_data,
-			in4_req_n    => in4_req_n,
-			in4_ack_n    => in4_ack_n,
 			input_select => input_sel,
 			out_data     => imu_aer_data,
 			out_req_n    => imu_req_n,

@@ -27,15 +27,7 @@ ARCHITECTURE behavior OF okt_imu_tb IS
 	signal node_req  : std_logic;
 	signal node_ack  : std_logic;
 
-	signal logger_data : std_logic_vector(BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto 0);
-	signal logger_req  : std_logic;
-	signal logger_ack  : std_logic;
-
-	signal spinnaker_data : std_logic_vector(SPINNAKER_BITS_DATA_WIDTH - 1 downto 0);
-	signal spinnaker_req  : std_logic;
-	signal spinnaker_ack  : std_logic;
-
-	signal in0_data, in1_data, in2_data, in3_data : std_logic_vector(BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto 0);
+	signal in0_data, in1_data, in2_data: std_logic_vector(BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto 0);
 
 	signal input_select : std_logic_vector(NUM_INPUTS - 1 downto 0);
 
@@ -50,8 +42,6 @@ ARCHITECTURE behavior OF okt_imu_tb IS
 	signal current_state_rome_a, next_state_rome_a       : state;
 	signal current_state_rome_b, next_state_rome_b       : state;
 	signal current_state_node, next_state_node           : state;
-	signal current_state_logger, next_state_logger       : state;
-	signal current_state_spinnaker, next_state_spinnaker : state;
 
 	type state_handshake is (idle, req_fall);
 	signal current_state_out, next_state_out : state_handshake;
@@ -61,7 +51,6 @@ BEGIN
 	in0_data <= std_logic_vector(to_unsigned(0, BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - ROME_DATA_BITS_WIDTH)) & rome_a_data;
 	in1_data <= std_logic_vector(to_unsigned(0, BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - ROME_DATA_BITS_WIDTH)) & rome_b_data;
 	in2_data <= std_logic_vector(to_unsigned(0, BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - NODE_DATA_BITS_WIDTH)) & node_data;
-	in3_data <= std_logic_vector(to_unsigned(0, BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - SPINNAKER_BITS_DATA_WIDTH)) & spinnaker_data;
 	
 	-- Component Instantiation
 	okt_imu : entity work.okt_imu
@@ -77,12 +66,6 @@ BEGIN
 			in2_data     => in2_data,
 			in2_req_n    => node_req,
 			in2_ack_n    => node_ack,
-			in3_data     => in3_data,
-			in3_req_n    => spinnaker_req,
-			in3_ack_n    => spinnaker_ack,
-			in4_data     => logger_data,
-			in4_req_n    => logger_req,
-			in4_ack_n    => logger_ack,
 			input_select => input_select,
 			out_data     => out_data,
 			out_req_n    => out_req,
@@ -102,25 +85,21 @@ BEGIN
 	stim_proc : process
 	begin
 		rst          <= '0';
-		input_select <= b"00000";
+		input_select <= b"000";
 		wait for CLK_period * 5;
 		rst          <= '1';
 
 		-- insert stimulus here
 		wait for CLK_period;
-		input_select <= b"00001";
+		input_select <= b"001";
 		wait for CLK_period * 20;
-		input_select <= b"00000";
+		input_select <= b"000";
 		wait for CLK_period * 20;
-		input_select <= b"00011";
+		input_select <= b"011";
 		wait for CLK_period * 20;
-		input_select <= b"00100";
+		input_select <= b"100";
 		wait for CLK_period * 20;
-		input_select <= b"01000";
-		wait for CLK_period * 20;
-		input_select <= b"10000";
-		wait for CLK_period * 20;
-		input_select <= b"11111";
+		input_select <= b"111";
 		wait;
 	end process;
 
@@ -130,40 +109,30 @@ BEGIN
 			current_state_rome_a    <= idle;
 			current_state_rome_b    <= idle;
 			current_state_node      <= idle;
-			current_state_logger    <= idle;
-			current_state_spinnaker <= idle;
 			current_state_out       <= idle;
 
 		elsif rising_edge(clk) then
 			current_state_rome_a    <= next_state_rome_a;
 			current_state_rome_b    <= next_state_rome_b;
 			current_state_node      <= next_state_node;
-			current_state_logger    <= next_state_logger;
-			current_state_spinnaker <= next_state_spinnaker;
 			current_state_out       <= next_state_out;
 
 		end if;
 	end process;
 
-	FSM_transition : process(current_state_rome_a, rome_a_ack, current_state_rome_b, rome_b_ack, current_state_node, node_ack, current_state_logger, logger_ack, current_state_spinnaker, spinnaker_ack)
+	FSM_transition : process(current_state_rome_a, rome_a_ack, current_state_rome_b, rome_b_ack, current_state_node, node_ack)
 	begin
 		next_state_rome_a    <= current_state_rome_a;
 		next_state_rome_b    <= current_state_rome_b;
 		next_state_node      <= current_state_node;
-		next_state_logger    <= current_state_logger;
-		next_state_spinnaker <= current_state_spinnaker;
 
 		rome_a_req    <= '1';
 		rome_b_req    <= '1';
 		node_req      <= '1';
-		logger_req    <= '1';
-		spinnaker_req <= '1';
 
 		rome_a_data    <= (others => '0');
 		rome_b_data    <= (others => '0');
 		node_data      <= (others => '0');
-		logger_data    <= (others => '0');
-		spinnaker_data <= (others => '0');
 
 		case current_state_rome_a is
 			when idle =>
@@ -219,44 +188,6 @@ BEGIN
 			when req_rise =>
 				node_req        <= '1';
 				next_state_node <= idle;
-
-		end case;
-
-		case current_state_logger is
-			when idle =>
-				if logger_ack = '1' then
-					next_state_logger <= req_fall;
-				end if;
-
-			when req_fall =>
-				logger_req  <= '0';
-				logger_data <= std_logic_vector(to_unsigned(5, logger_data'length));
-				if logger_ack = '0' then
-					next_state_logger <= req_rise;
-				end if;
-
-			when req_rise =>
-				logger_req        <= '1';
-				next_state_logger <= idle;
-
-		end case;
-
-		case current_state_spinnaker is
-			when idle =>
-				if spinnaker_ack = '1' then
-					next_state_spinnaker <= req_fall;
-				end if;
-
-			when req_fall =>
-				spinnaker_req  <= '0';
-				spinnaker_data <= std_logic_vector(to_unsigned(4, spinnaker_data'length));
-				if spinnaker_ack = '0' then
-					next_state_spinnaker <= req_rise;
-				end if;
-
-			when req_rise =>
-				spinnaker_req        <= '1';
-				next_state_spinnaker <= idle;
 
 		end case;
 	end process;

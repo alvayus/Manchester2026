@@ -1,4 +1,3 @@
-
 library ieee;
 use ieee.std_logic_1164.all;
 use work.okt_imu_pkg.all;
@@ -18,12 +17,6 @@ entity okt_imu is                       -- Input Merger Unit
 		in2_data     : in  std_logic_vector(BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto 0);
 		in2_req_n    : in  std_logic;
 		in2_ack_n    : out std_logic;
-		in3_data     : in  std_logic_vector(BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto 0);
-		in3_req_n    : in  std_logic;
-		in3_ack_n    : out std_logic;
-		in4_data     : in  std_logic_vector(BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto 0);
-		in4_req_n    : in  std_logic;
-		in4_ack_n    : out std_logic;
 		input_select : in  std_logic_vector(NUM_INPUTS - 1 downto 0);
 		out_data     : out std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
 		out_req_n    : out std_logic;
@@ -36,7 +29,7 @@ architecture Behavioral of okt_imu is
 	signal n_out_req_n, n_out_ack_n : std_logic;
 	signal n_out_data               : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
 
-	type state is (idle, in0, in1, in2, in3, in4);
+	type state is (idle, in0, in1, in2);
 	signal r_okt_control_state, n_okt_control_state : state;
 
 	-- DEBUG
@@ -56,33 +49,26 @@ begin
 		end if;
 	end process;
 
-	process(r_okt_control_state, input_select, in0_req_n, in1_req_n, in2_req_n, in3_req_n, in4_req_n, in0_data, in1_data, in2_data, in4_data, in3_data, n_out_ack_n)
+	process(r_okt_control_state, input_select, in0_req_n, in1_req_n, in2_req_n, in0_data, in1_data, in2_data, n_out_ack_n)
 	begin
 		n_okt_control_state <= r_okt_control_state;
 		in0_ack_n           <= '1';
 		in1_ack_n           <= '1';
 		in2_ack_n           <= '1';
-		in3_ack_n           <= '1';
-		in4_ack_n           <= '1';
 		n_out_data            <= (others => '0');
 		n_out_req_n           <= '1';
 
 		case r_okt_control_state is
 			when idle =>
-				if (input_select(0) = '1' and in0_req_n = '0') then
+				if input_select(0) = '1' and in0_req_n = '0' then
 					n_okt_control_state <= in0;
 
-				elsif (input_select(1) = '1' and in1_req_n = '0') then
+				elsif input_select(1) = '1' and in1_req_n = '0' then
 					n_okt_control_state <= in1;
 
-				elsif (input_select(2) = '1' and in2_req_n = '0') then
+				elsif input_select(2) = '1' and in2_req_n = '0' then
 					n_okt_control_state <= in2;
 
-				elsif (input_select(3) = '1' and in3_req_n = '0') then
-					n_okt_control_state <= in3;
-
-				elsif (input_select(4) = '1' and in4_req_n = '0') then
-					n_okt_control_state <= in4;
 				end if;
 
 			when in0 =>
@@ -91,22 +77,19 @@ begin
 				n_out_req_n                                                                   <= in0_req_n;
 				in0_ack_n                                                                   <= n_out_ack_n;
 
-				if (input_select = std_logic_vector(to_unsigned(0, input_select'length))) then
+				if input_select = std_logic_vector(to_unsigned(0, input_select'length)) then
 					n_okt_control_state <= idle;
 
-				elsif (in0_req_n = '1' and n_out_ack_n = '1') then
+				elsif in0_req_n = '1' and n_out_ack_n = '1' then
 					if input_select(1) = '1' and in1_req_n = '0' then
 						n_okt_control_state <= in1;
 
 					elsif input_select(2) = '1' and in2_req_n = '0' then
 						n_okt_control_state <= in2;
-
-					elsif input_select(3) = '1' and in3_req_n = '0' then
-						n_okt_control_state <= in3;
-
-					elsif input_select(4) = '1' and in4_req_n = '0' then
-						n_okt_control_state <= in4;
-
+						
+					elsif unsigned(input_select) = 0 then
+						n_okt_control_state <= idle;
+						
 					end if;
 				end if;
 
@@ -116,22 +99,19 @@ begin
 				n_out_req_n                                                                   <= in1_req_n;
 				in1_ack_n                                                                   <= n_out_ack_n;
 
-				if (input_select = std_logic_vector(to_unsigned(0, input_select'length))) then
+				if input_select = std_logic_vector(to_unsigned(0, input_select'length)) then
 					n_okt_control_state <= idle;
 
-				elsif (in1_req_n = '1' and n_out_ack_n = '1') then
+				elsif in1_req_n = '1' and n_out_ack_n = '1' then
 					if input_select(2) = '1' and in2_req_n = '0' then
 						n_okt_control_state <= in2;
-
-					elsif input_select(3) = '1' and in3_req_n = '0' then
-						n_okt_control_state <= in3;
-
-					elsif input_select(4) = '1' and in4_req_n = '0' then
-						n_okt_control_state <= in4;
 
 					elsif input_select(0) = '1' and in0_req_n = '0' then
 						n_okt_control_state <= in0;
 
+					elsif unsigned(input_select) = 0 then
+						n_okt_control_state <= idle;
+						
 					end if;
 				end if;
 
@@ -141,72 +121,19 @@ begin
 				n_out_req_n                                                                   <= in2_req_n;
 				in2_ack_n                                                                   <= n_out_ack_n;
 
-				if (input_select = std_logic_vector(to_unsigned(0, input_select'length))) then
+				if input_select = std_logic_vector(to_unsigned(0, input_select'length)) then
 					n_okt_control_state <= idle;
 
-				elsif (in2_req_n = '1' and n_out_ack_n = '1') then
-					if input_select(3) = '1' and in3_req_n = '0' then
-						n_okt_control_state <= in3;
-
-					elsif input_select(4) = '1' and in4_req_n = '0' then
-						n_okt_control_state <= in4;
-
-					elsif input_select(0) = '1' and in0_req_n = '0' then
-						n_okt_control_state <= in0;
-
-					elsif input_select(1) = '1' and in1_req_n = '0' then
-						n_okt_control_state <= in1;
-
-					end if;
-				end if;
-
-			when in3 =>
-				n_out_data(BUFFER_BITS_WIDTH - 1 downto BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH) <= std_logic_vector(to_unsigned(3, INPUT_BITS_WIDTH));
-				n_out_data(BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto 0)                 <= in3_data;
-				n_out_req_n                                                                   <= in3_req_n;
-				in3_ack_n                                                                   <= n_out_ack_n;
-
-				if (input_select = std_logic_vector(to_unsigned(0, input_select'length))) then
-					n_okt_control_state <= idle;
-
-				elsif (in3_req_n = '1' and n_out_ack_n = '1') then
-					if input_select(4) = '1' and in4_req_n = '0' then
-						n_okt_control_state <= in4;
-
-					elsif input_select(0) = '1' and in0_req_n = '0' then
-						n_okt_control_state <= in0;
-
-					elsif input_select(1) = '1' and in1_req_n = '0' then
-						n_okt_control_state <= in1;
-
-					elsif input_select(2) = '1' and in2_req_n = '0' then
-						n_okt_control_state <= in2;
-
-					end if;
-				end if;
-
-			when in4 =>
-				n_out_data(BUFFER_BITS_WIDTH - 1 downto BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH) <= std_logic_vector(to_unsigned(4, INPUT_BITS_WIDTH));
-				n_out_data(BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto 0)                 <= in4_data;
-				n_out_req_n                                                                   <= in4_req_n;
-				in4_ack_n                                                                   <= n_out_ack_n;
-
-				if (input_select = std_logic_vector(to_unsigned(0, input_select'length))) then
-					n_okt_control_state <= idle;
-
-				elsif (in4_req_n = '1' and n_out_ack_n = '1') then
+				elsif in2_req_n = '1' and n_out_ack_n = '1' then
 					if input_select(0) = '1' and in0_req_n = '0' then
 						n_okt_control_state <= in0;
 
 					elsif input_select(1) = '1' and in1_req_n = '0' then
 						n_okt_control_state <= in1;
 
-					elsif input_select(2) = '1' and in2_req_n = '0' then
-						n_okt_control_state <= in2;
-
-					elsif input_select(3) = '1' and in3_req_n = '0' then
-						n_okt_control_state <= in3;
-
+					elsif unsigned(input_select) = 0 then
+						n_okt_control_state <= idle;
+						
 					end if;
 				end if;
 
