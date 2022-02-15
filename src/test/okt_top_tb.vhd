@@ -779,7 +779,7 @@ begin
 			i := 0;
 			while i < num_USB_transfers loop
 				-- Read values
-				ReadFromBlockPipeOut(x"a0", 4, pipeOutSize);
+				ReadFromBlockPipeOut(x"a0", 512, pipeOutSize);
 
 				j := 0;
 				while j < 256 loop
