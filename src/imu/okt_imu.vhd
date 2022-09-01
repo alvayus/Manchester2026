@@ -28,6 +28,9 @@ architecture Behavioral of okt_imu is
 
 	signal n_out_req_n, n_out_ack_n : std_logic;
 	signal n_out_data               : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
+	
+	signal CAVIAR_ack, CAVIAR_req : std_logic;
+	signal CAVIAR_data : std_logic_vector(BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto 0);
 
 	type state is (idle, in0, in1, in2);
 	signal r_okt_control_state, n_okt_control_state : state;
@@ -37,6 +40,19 @@ architecture Behavioral of okt_imu is
 	attribute MARK_DEBUG of r_okt_control_state, n_okt_control_state : signal is "TRUE";
 
 begin
+
+    ws2c: entity work.okt_wsaer2caviar
+    port map(
+        WSAER_data  => in2_data(9 downto 0),
+        WSAER_req  => in2_req_n,
+        WSAER_ack => in2_ack_n,
+        CLK  => clk,
+        RST => not rst_n,             
+        row_delay  => "00111",
+        CAVIAR_ack  => CAVIAR_ack,
+        CAVIAR_req  => CAVIAR_req,
+        CAVIAR_data  => CAVIAR_data(16 downto 0)
+    );
 
 	process(clk, rst_n)
 	begin
@@ -49,14 +65,13 @@ begin
 		end if;
 	end process;
 
-	process(r_okt_control_state, input_select, in0_req_n, in1_req_n, in2_req_n, in0_data, in1_data, in2_data, n_out_ack_n)
+	process(r_okt_control_state, input_select, in0_req_n, in1_req_n, CAVIAR_req, in0_data, in1_data, CAVIAR_data, n_out_ack_n)
 	begin
 		n_okt_control_state <= r_okt_control_state;
 		in0_ack_n           <= '1';
 		in1_ack_n           <= '1';
-		in2_ack_n           <= '1';
-		n_out_data            <= (others => '0');
-		n_out_req_n           <= '1';
+		n_out_data          <= (others => '0');
+		n_out_req_n         <= '1';
 
 		case r_okt_control_state is
 			when idle =>
@@ -66,7 +81,7 @@ begin
 				elsif input_select(1) = '1' and in1_req_n = '0' then
 					n_okt_control_state <= in1;
 
-				elsif input_select(2) = '1' and in2_req_n = '0' then
+				elsif input_select(2) = '1' and CAVIAR_req = '0' then
 					n_okt_control_state <= in2;
 
 				end if;
@@ -84,7 +99,7 @@ begin
 					if input_select(1) = '1' and in1_req_n = '0' then
 						n_okt_control_state <= in1;
 
-					elsif input_select(2) = '1' and in2_req_n = '0' then
+					elsif input_select(2) = '1' and CAVIAR_req = '0' then
 						n_okt_control_state <= in2;
 						
 					elsif unsigned(input_select) = 0 then
@@ -103,7 +118,7 @@ begin
 					n_okt_control_state <= idle;
 
 				elsif in1_req_n = '1' and n_out_ack_n = '1' then
-					if input_select(2) = '1' and in2_req_n = '0' then
+					if input_select(2) = '1' and CAVIAR_req = '0' then
 						n_okt_control_state <= in2;
 
 					elsif input_select(0) = '1' and in0_req_n = '0' then
@@ -117,14 +132,14 @@ begin
 
 			when in2 =>
 				n_out_data(BUFFER_BITS_WIDTH - 1 downto BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH) <= std_logic_vector(to_unsigned(2, INPUT_BITS_WIDTH));
-				n_out_data(BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto 0)                 <= in2_data;
-				n_out_req_n                                                                   <= in2_req_n;
-				in2_ack_n                                                                   <= n_out_ack_n;
+				n_out_data(BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto 0)                 <= CAVIAR_data;
+				n_out_req_n                                                                   <= CAVIAR_req;
+				CAVIAR_ack                                                                    <= n_out_ack_n;
 
 				if input_select = std_logic_vector(to_unsigned(0, input_select'length)) then
 					n_okt_control_state <= idle;
 
-				elsif in2_req_n = '1' and n_out_ack_n = '1' then
+				elsif CAVIAR_req = '1' and n_out_ack_n = '1' then
 					if input_select(0) = '1' and in0_req_n = '0' then
 						n_okt_control_state <= in0;
 
