@@ -24,7 +24,9 @@ entity okt_cu is                        -- Control Unit
 		-- Input selection
 		input_sel : out   std_logic_vector(NUM_INPUTS - 1 downto 0);
 		-- Leds
-		status    : out   std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0)
+		status    : out   std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
+		-- OSU interface
+		osu_cmd	 :	out	std_logic_vector(1 downto 0)
 	);
 end okt_cu;
 
@@ -54,6 +56,9 @@ architecture Behavioral of okt_cu is
 	signal epA0_ready       : std_logic;
 
 	signal status_n : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
+	
+	-- OSU signals
+	signal n_osu_cmd : std_logic_vector(2 downto 1);
 
 begin
 
@@ -64,6 +69,8 @@ begin
 	status <= status_n;
 
 	input_sel <= n_input_sel;
+	
+	osu_cmd <= n_osu_cmd;
 
 	okHI : work.FRONTPANEL.okHost
 		port map(

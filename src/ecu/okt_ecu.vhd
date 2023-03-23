@@ -38,7 +38,7 @@ architecture Behavioral of okt_ecu is
 	
 	signal usb_ready : std_logic;
 	signal fifo_r_en_end : std_logic; 
-    signal fifo_r_en_latched : std_logic;
+   signal fifo_r_en_latched : std_logic;
 
 	-- DEBUG
 	attribute MARK_DEBUG : string;
