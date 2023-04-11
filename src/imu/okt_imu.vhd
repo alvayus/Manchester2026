@@ -21,7 +21,7 @@ entity okt_imu is                       -- Input Merger Unit
 		out_data     : out std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
 		out_req_n    : out std_logic;
 		out_ack      : in  std_logic
-	);
+);
 end okt_imu;
 
 architecture Behavioral of okt_imu is

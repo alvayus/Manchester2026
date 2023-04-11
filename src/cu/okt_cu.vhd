@@ -26,7 +26,7 @@ entity okt_cu is                        -- Control Unit
 		-- Leds
 		status    : out   std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
 		-- OSU interface
-		osu_cmd	 :	out	std_logic_vector(1 downto 0)
+		cmd	 	 :	out	std_logic_vector(2 downto 0)
 	);
 end okt_cu;
 
@@ -58,7 +58,7 @@ architecture Behavioral of okt_cu is
 	signal status_n : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
 	
 	-- OSU signals
-	signal n_osu_cmd : std_logic_vector(2 downto 1);
+--	signal n_osu_cmd : std_logic_vector(2 downto 1);
 
 begin
 

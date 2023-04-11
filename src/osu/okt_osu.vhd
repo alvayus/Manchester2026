@@ -30,22 +30,30 @@ use IEEE.STD_LOGIC_1164.ALL;
 --use UNISIM.VComponents.all;
 
 entity okt_osu is						-- Output Sequencer Unit
-    Port ( clk   			: in  STD_LOGIC;
-           rst_n 			: in  STD_LOGIC;
-           aer_data  	: in  STD_LOGIC_VECTOR (BUFFER_BITS_WIDTH - 1 downto 0);
-           req_n 			: in  STD_LOGIC;
-           ack_n 			: inout  STD_LOGIC;
-           osu_cmd 		: in  STD_LOGIC_VECTOR (1 downto 0);
-           osu_data 		: out  STD_LOGIC;
-           osu_req_n 	: out  STD_LOGIC;
-           osu_ack_n 	: in  STD_LOGIC
-	);
+    Port ( clk   				: in  STD_LOGIC;
+           rst_n 				: in  STD_LOGIC;
+           aer_in_data  	: in  STD_LOGIC_VECTOR (BUFFER_BITS_WIDTH - 1 downto 0);
+           req_in_data_n 	: in  STD_LOGIC;
+           ecu_ack_n 		: in  STD_LOGIC;
+           cmd 				: in  STD_LOGIC_VECTOR (2 downto 0);
+           node_data 		: out STD_LOGIC;
+           node_req_n 		: out STD_LOGIC;
+           node_ack_n 		: in  STD_LOGIC;
+			  out_ack         : out STD_LOGIC
+);
 end okt_osu;
 
 architecture Behavioral of okt_osu is
 
+	signal cmd_command: std_logic_vector(2 downto 0);
+
 begin
-
-
+	process(ecu_ack_n, node_ack_n)
+		begin
+			if (ecu_ack_n = '0' & node_ack_n = '0') then
+				out_ack => '0';
+			end if;	
+	end process
+	
 end Behavioral;
 
