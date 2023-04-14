@@ -12,22 +12,7 @@ use IEEE.STD_LOGIC_1164.all;
 
 package okt_osu_pkg is
 
--- type <new_type> is
---  record
---    <type_name>        : std_logic_vector( 7 downto 0);
---    <type_name>        : std_logic;
--- end record;
---
--- Declare constants
---
--- constant <constant_name>		: time := <time_unit> ns;
--- constant <constant_name>		: integer := <value;
---
--- Declare functions and procedure
---
--- function <function_name>  (signal <signal_name> : in <type_declaration>) return <type_declaration>;
--- procedure <procedure_name> (<type_declaration> <constant_name>	: in <type_declaration>);
---
+	constant NODE_DATA_BITS_WIDTH      : integer := 28;
 
 end okt_osu_pkg;
 

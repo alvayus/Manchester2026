@@ -69,8 +69,6 @@ begin
 	status <= status_n;
 
 	input_sel <= n_input_sel;
-	
-	osu_cmd <= n_osu_cmd;
 
 	okHI : work.FRONTPANEL.okHost
 		port map(
