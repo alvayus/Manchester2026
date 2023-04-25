@@ -56,8 +56,13 @@ architecture Behavioral of okt_top is
 	signal imu_aer_data : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
 	signal imu_ack_n    : std_logic;
 
-	signal status_cu : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
-	signal status_ecu : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
+	signal status_cu 	: std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
+	signal status_ecu	: std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
+	
+	signal cmd : std_logic_vector(2 downto 0);
+	signal osu_ack: std_logic;
+	signal out_ack: std_logic;
+	
 
 begin
 
@@ -137,7 +142,22 @@ begin
 			out_data  => ecu_data,
 			out_rd    => ecu_rd,
 			out_ready => ecu_ready,
-			status => status_ecu
+			status    => status_ecu,
+			cmd       => cmd
 		);
-
+		
+	osu_inst : entity work.okt_osu
+		port map(
+			clk           => okClk,
+			rst_n      	  => rst_n,
+			aer_in_data   => imu_aer_data,
+			req_in_data_n => imu_req_n,
+			ecu_ack_n     => imu_ack_n,
+			cmd           => cmd,
+			node_data     => out_data,
+			node_req_n    => out_req_n,
+			node_ack_n    => out_ack_n,
+			out_ack    	  => out_ack
+		);
+		
 end Behavioral;

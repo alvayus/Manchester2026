@@ -16,8 +16,9 @@ entity okt_ecu is                       -- Event Capture Unit
 		out_data  : out std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
 		out_rd    : in  std_logic;
 		out_ready : out std_logic;
-		status    : out std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0)
-	);
+		status    : out std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
+		cmd		 : in std_logic_vector(2 downto 0)
+);
 end okt_ecu;
 
 architecture Behavioral of okt_ecu is
@@ -28,17 +29,17 @@ architecture Behavioral of okt_ecu is
 	signal r_timestamp, n_timestamp : std_logic_vector(TIMESTAMP_BITS_WIDTH - 1 downto 0);
 	signal n_ack_n                  : std_logic;
 
-	signal fifo_w_data : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
-	signal fifo_w_en   : std_logic;
-	signal fifo_r_data : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
-	signal fifo_r_en   : std_logic;
-	signal fifo_empty  : std_logic;
-	signal fifo_full   : std_logic;
+	signal fifo_w_data 		  : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
+	signal fifo_w_en   		  : std_logic;
+	signal fifo_r_data 		  : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
+	signal fifo_r_en   		  : std_logic;
+	signal fifo_empty  		  : std_logic;
+	signal fifo_full   		  : std_logic;
 	signal fifo_almost_full   : std_logic;
 	
-	signal usb_ready : std_logic;
-	signal fifo_r_en_end : std_logic; 
-    signal fifo_r_en_latched : std_logic;
+	signal usb_ready 			  : std_logic;
+	signal fifo_r_en_end 	  : std_logic; 
+   signal fifo_r_en_latched  : std_logic;
 
 	-- DEBUG
 	attribute MARK_DEBUG : string;
