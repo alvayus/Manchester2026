@@ -24,7 +24,7 @@ print('device_count =', device_count)
 for idx in range(device_count):
     print(f"Device[{idx}] Model: {device.GetDeviceListModel(idx)}")
 
-BIT_FILE = r"C:\Users\PabloSQ_2023\PycharmProjects\Okaertool\okaertool-master\okaertool-master\okt_top.bit"
+BIT_FILE = r"C:\Users\PabloSQ_2023\PycharmProjects\Okaertool_local\OKT_TOP 32 ns\okt_top.bit"
 opal = okt.Okaertool(bit_file=BIT_FILE)
 opal.init()
 opal.select_inputs(inputs=['Port_A'])

@@ -25,7 +25,7 @@ from collections import Counter
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
+import sys
 
 class Spikes:
     """
@@ -121,32 +121,42 @@ class Okaertool:
         spikes = [Spikes() for x in range(self.NUM_INPUTS)]
         # Read information from the device
         buffer = bytearray(buffer_length)
+        buffer = np.array(buffer, dtype=np.uint8)
         num_read_bytes = self.device.ReadFromBlockPipeOut(self.OUTPIPE_ENDPOINT, self.USB_BLOCK_SIZE, buffer)
-        print('Numero de Bytes Leídos', num_read_bytes)
+        # Int type buffer
         buffer_list = list(buffer)
+
+        # Numpy Matrix with the 8 bytes of AER protocol
+        Matrix_Runner_z = 0
+        n_filas = int(((num_read_bytes)/8))
+        n_columnas = 8  # Number of bytes of AER protocol: 4 for timestamp (ts) and 4 for address (addr)
+        np_matrix = np.zeros(shape=(n_filas, n_columnas))
+        for Matrix_Runner_x in range(n_filas):
+                for Matrix_Runner_y in range(7, -1, -1):
+                    np_matrix[Matrix_Runner_x][Matrix_Runner_y] = buffer[Matrix_Runner_z]
+                    Matrix_Runner_z += 1
+
         # Counter used for counting goods events and debugging
         q = 1
         # Empty lists of address and timestamp datas
         addr_histogram = []
         ts_histogram = []
         # Loop in the collect data and split the information into the right spike input struct
-        for b_idx in range(0, num_read_bytes, 8):  # Each spike is a ts(4 bytes) and addr(4bytes)
+        for b_idx in range(0, num_read_bytes, 8):  # Each spike has a ts(4 bytes) and an addr(4bytes)
             # Example of this range(0, num_read_bytes, 8) with spikes = 1 Mb and by USB_BLOCK_SIZE = 1024 bytes -->
-            # Number of iterations: 1048568 / 8 = 131071
+            # Number of iterations: (1048568 / 8) + 1 = 131072
             try:
                 print('-------------Índice b_indx-------------', b_idx)
-                ts = int.from_bytes(buffer[b_idx:b_idx+4], byteorder='big', signed=False)
+                ts = int.from_bytes(buffer[b_idx:b_idx+3], byteorder='little', signed=False)
                 print('Timestamp ts', ts)
-                addr = int.from_bytes(buffer[b_idx+4:b_idx+8], byteorder='big', signed=False)
+                addr = int.from_bytes(buffer[b_idx+4:b_idx+7], byteorder='little', signed=False)
                 print('addr', addr)
-                # ----------------------------------------------------------------------
-                # if ts == 0 and addr == 0:  # Null value. Used to fill de USB packet
-                #     continue
-                # ----------------------------------------------------------------------
-                if ts == 4294967295 or addr == 0:           # 4294967295 = /xff/xff/xff/xff
+
+                if (ts == 0 and addr == 0) or ts == 4294967295:  # Null value. Used to fill de USB packet and 4294967295 = /xff/xff/xff/xff
                     continue
                 else:
                     pass
+
                 ts_histogram.append(ts)
                 addr_histogram.append(addr)
                 q += 1
@@ -191,6 +201,94 @@ class Okaertool:
         ts_keys_string = [str(i) for i in ts_keys]
         addr_keys_string = [str(i) for i in addr_keys]
 
+        # Data Byte Ordering
+
+        in_two_bits_histogram = []
+        null_bit_histogram = []
+        addr_x_histogram = []
+        addr_y_histogram = []
+        pol_histogram = []
+        i = 0
+        j = 2
+        k = 3
+
+        try:
+            for u in range(n_filas):
+
+                n_binary_in = bin(int(float(np_matrix[u, i]))).lstrip('0b').zfill(8)
+                in_two_bits = str(n_binary_in[0:1])
+                in_two_bits_histogram.append(in_two_bits)
+
+                n_binary_x = bin(int(float(np_matrix[u, j]))).lstrip('0b').zfill(8)
+                null_bit = str(n_binary_x[0])
+                addr_x = int(str(n_binary_x[1:8]), 2)
+                null_bit_histogram.append(null_bit)
+                addr_x_histogram.append(addr_x)
+
+                n_binary_y = bin(int(float(np_matrix[u, k]))).lstrip('0b').zfill(8)
+                pol = str(n_binary_y[-1])
+                addr_y = int(str(n_binary_y[0:7]), 2)
+                pol_histogram.append(pol)
+                addr_y_histogram.append(addr_y)
+
+        except IndexError as e:
+            print('ERROR', e)
+
+        # try:
+        #     for (i, q, v) in zip(range(n_filas), range(n_filas)):
+        #
+        #         n_binary_x = bin(int(float(np_matrix[i, k]))).lstrip('0b').zfill(8)
+        #         null_bit = str(n_binary_x[0])
+        #         addr_x = int(str(n_binary_x[1:8]), 2)
+        #         null_bit_histogram.append(null_bit)
+        #         addr_x_histogram.append(addr_x)
+        #
+        #         n_binary_y = bin(int(float(np_matrix[q, j]))).lstrip('0b').zfill(8)
+        #         pol = str(n_binary_y[-1])
+        #         addr_y = int(str(n_binary_y[0:7]), 2)
+        #         pol_histogram.append(pol)
+        #         addr_y_histogram.append(addr_y)
+        #
+        #         n_binary_in = bin(int(float(np_matrix[i, j]))).lstrip('0b').zfill(8)
+        #
+        # except IndexError as e:
+        #     print('ERROR', e)
+
+        # Creating a 2-dimensional array with the two addresses x and y
+
+        data_histogram_np = np.array([addr_x_histogram, addr_y_histogram])
+
+        data_histogram = list(zip(addr_x_histogram, addr_y_histogram))
+        dictionary_xy = Counter(data_histogram)
+        counts_xy = list(dictionary_xy.values())
+        counts_xy_string = [str(i) for i in counts_xy]
+
+        # # Plotting histogram figures
+        #
+        # fig, ax = plt.subplots()
+        # im = ax.imshow(data_histogram_np)
+        #
+        # dvs_dimension = []
+        # for i in range(128):
+        #     dvs_dimension.append(str(i))
+        #
+        # # Show all ticks and label them with the respective list entries
+        # ax.set_xticks(np.arange(len(str(addr_x_histogram))), labels=str(addr_x_histogram))
+        # ax.set_yticks(np.arange(len(str(addr_y_histogram))), labels=str(addr_y_histogram))
+        #
+        # # Rotate the tick labels and set their alignment.
+        # plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+        #          rotation_mode="anchor")
+        #
+        # # Loop over data dimensions and create text annotations.
+        # for i in range(len(addr_y_histogram)):
+        #     for j in range(len(addr_x_histogram)):
+        #         text = ax.text(j, i, [i, j],
+        #                        ha="center", va="center", color="w")
+        #
+        # ax.set_title("Addresses Counts")
+        # fig.tight_layout()
+
         # # Creating series from the lists
         # freq_series_ts = pd.Series(ts_values)
         # freq_series_addr = pd.Series(addr_values)
@@ -204,33 +302,15 @@ class Okaertool:
         #     addr_keys_numbers.append(j)
 
 
+
         # Plotting bar figures
-
-        df = pd.DataFrame({'ts_key': ts_keys_string, 'val_ts': ts_values})
-        df.plot.bar(x='ts_key', y='val_ts', rot=0)
-
-        df = pd.DataFrame({'addr_key': addr_keys_string, 'val_addr': addr_values})
-        df.plot.bar(x='addr_key', y='val_addr', rot=0)
-
-        # fig1 = plt.figure(figsize=(10, 10))
-        # fig1.autofmt_xdate()
-        # plt.xlim(min(ts_keys), max(ts_keys))
-        # plt.ylim(min(ts_values), max(ts_values))
-        # ax = freq_series_ts.plot(kind="bar")
-        # ax.set_title("Time Stamps")
-        # ax.set_xlabel("Ts Value")
-        # ax.set_ylabel("Frequency Value")
-        # # ax.set_xticklabels(ts_keys_numbers)
+        # # -----------------------------------------------------------------------------------------
+        # df = pd.DataFrame({'ts_key': ts_keys_string, 'val_ts': ts_values})
+        # df.plot.bar(x='ts_key', y='val_ts', rot=0)
         #
-        # fig2 = plt.figure(figsize=(10, 10))
-        # fig2.autofmt_xdate()
-        # plt.xlim(min(addr_keys), max(addr_keys))
-        # plt.ylim(min(addr_values), max(addr_values))
-        # ax = freq_series_addr.plot(kind="bar")
-        # ax.set_title("Addresses")
-        # ax.set_xlabel("Addr Value")
-        # ax.set_ylabel("Frequency Value")
-        # # ax.set_xticklabels(addr_keys_numbers)
+        # df = pd.DataFrame({'addr_key': addr_keys_string, 'val_addr': addr_values})
+        # df.plot.bar(x='addr_key', y='val_addr', rot=0)
+        # # -----------------------------------------------------------------------------------------
 
         plt.show()
 
