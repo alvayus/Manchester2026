@@ -17,7 +17,7 @@ entity okt_ecu is                       -- Event Capture Unit
 		out_rd    : in  std_logic;
 		out_ready : out std_logic;
 		status    : out std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
-		cmd		 : in std_logic_vector(2 downto 0)
+		cmd		 : in std_logic_vector(COMMAND_BIT_WIDTH - 1 downto 0)
 );
 end okt_ecu;
 
@@ -75,7 +75,7 @@ begin
 		if rst_n = '0' then
 			r_okt_ecu_control_state <= idle;
 			r_timestamp             <= (others => '0');
-
+		
 		elsif rising_edge(clk) then
 			r_okt_ecu_control_state <= n_okt_ecu_control_state;
 			r_timestamp             <= n_timestamp;
@@ -105,7 +105,7 @@ begin
 					n_okt_ecu_control_state <= timestamp_overflow_0;
 
 				elsif (fifo_full = '0') then
-					fifo_w_data(TIMESTAMP_BITS_WIDTH - 1 downto 0) <= r_timestamp;
+					fifo_w_data(BUFFER_BITS_WIDTH - 1 downto 0) <= r_timestamp;
 					fifo_w_en                                      <= '1';
 					n_timestamp                                    <= (others => '0');
 					n_okt_ecu_control_state                        <= req_fall_1;

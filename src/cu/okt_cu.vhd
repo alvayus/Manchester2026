@@ -26,7 +26,7 @@ entity okt_cu is                        -- Control Unit
 		-- Leds
 		status    : out   std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
 		-- OSU interface
-		cmd	 	 :	out	std_logic_vector(2 downto 0)
+		cmd	 	 :	out	std_logic_vector(COMMAND_BIT_WIDTH - 1 downto 0)
 	);
 end okt_cu;
 
@@ -56,9 +56,6 @@ architecture Behavioral of okt_cu is
 	signal epA0_ready       : std_logic;
 
 	signal status_n : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
-	
-	-- OSU signals
---	signal n_osu_cmd : std_logic_vector(2 downto 1);
 
 begin
 
@@ -69,6 +66,8 @@ begin
 	status <= status_n;
 
 	input_sel <= n_input_sel;
+	
+	n_command <= cmd;
 
 	okHI : work.FRONTPANEL.okHost
 		port map(
@@ -150,12 +149,12 @@ begin
 		status_n(LEDS_BITS_WIDTH - 1 downto 1) <= (others => '0');
 
 		case n_command is
-			when "01" =>                -- ECU command. Send out captured event to USB
+			when "001" | "011" | "101" =>                -- ECU command. Send out captured event to USB
 				n_ecu_rd    <= epA0_read;
 				epA0_datain <= n_ecu_data;
 				epA0_ready  <= n_ecu_ready;
 				status_n(1) <= '1';     -- Set ECU led
-
+				
 			when others =>
 				null;
 		end case;

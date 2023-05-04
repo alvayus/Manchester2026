@@ -33,29 +33,48 @@ use work.okt_osu_pkg.all;
 
 entity okt_osu is						-- Output Sequencer Unit
     Port(  
-		     clk   				: in  STD_LOGIC;
-           rst_n 				: in  STD_LOGIC;
-           aer_in_data  	: in  STD_LOGIC_VECTOR (BUFFER_BITS_WIDTH - 1 downto 0);
-           req_in_data_n 	: in  STD_LOGIC;
-           ecu_ack_n 		: in  STD_LOGIC;
-           cmd 				: in  STD_LOGIC_VECTOR (2 downto 0);
+		     clk   				: in  std_logic;
+           rst_n 				: in  std_logic;
+           aer_in_data  	: in  std_logic_vector (BUFFER_BITS_WIDTH - 1 downto 0);
+           req_in_data_n 	: in  std_logic;
+           ecu_ack_n 		: in  std_logic;
+           cmd 				: in  std_logic_vector (COMMAND_BIT_WIDTH - 1 downto 0);
            node_data 		: out std_logic_vector(NODE_DATA_BITS_WIDTH - 1 downto 0);
-           node_req_n 		: out STD_LOGIC;
-           node_ack_n 		: in  STD_LOGIC;
-			  out_ack         : out STD_LOGIC
+           node_req_n 		: out std_logic;
+           node_ack_n 		: in  std_logic;
+			  out_ack         : out std_logic
 );
 end okt_osu;
 
 architecture Behavioral of okt_osu is
 
-	signal cmd_command: std_logic_vector(2 downto 0);
+signal n_command: std_logic_vector(COMMAND_BIT_WIDTH - 1 downto 0);
+signal osu_in_data: std_logic_vector (BUFFER_BITS_WIDTH - 1 downto 0);
+signal osu_out_data: std_logic_vector(NODE_DATA_BITS_WIDTH - 1 downto 0);
 
 begin
-	process(ecu_ack_n, node_ack_n)
+
+	n_command <= cmd;
+	osu_in_data <= aer_in_data;
+	osu_out_data <= node_data;
+
+	process(ecu_ack_n, node_ack_n, cmd)
+	
 		begin
+		
 			if (ecu_ack_n = '0' and node_ack_n = '0') then
 				out_ack <= '0';
+				case n_command is
+					when "010" | "011" | "101" =>       
+						osu_in_data <= osu_out_data;
+					when others =>
+						null;
+						-- aer_in_data <= 0;
+			end case;
+			else
+				out_ack <= '1';
 			end if;	
+			
 	end process;
 	
 end Behavioral;
