@@ -7,6 +7,7 @@ package okt_top_pkg is
 	constant NODE_DATA_BITS_WIDTH      : integer := 28;
 	constant SPINNAKER_BITS_DATA_WIDTH : integer := 8;
 	constant COMMAND_BIT_WIDTH 	     : integer := 3;
+	constant NODE_IN_DATA_BITS_WIDTH   : integer := 32; -- 28?
 end okt_top_pkg;
 
 package body okt_top_pkg is

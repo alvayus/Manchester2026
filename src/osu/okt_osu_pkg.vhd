@@ -12,7 +12,7 @@ use IEEE.STD_LOGIC_1164.all;
 
 package okt_osu_pkg is
 
-	constant NODE_DATA_BITS_WIDTH      : integer := 32; -- 28?
+	constant NODE_IN_DATA_BITS_WIDTH   : integer := 32; -- 28?
 	constant COMMAND_BIT_WIDTH 		  : integer := 3;
 
 end okt_osu_pkg;

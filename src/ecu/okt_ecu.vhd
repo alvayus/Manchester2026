@@ -12,7 +12,7 @@ entity okt_ecu is                       -- Event Capture Unit
 		rst_n     : in  std_logic;
 		req_n     : in  std_logic;
 		aer_data  : in  std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
-		ack_n     : out std_logic;
+		ecu_out_ack_n     : out std_logic;
 		out_data  : out std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
 		out_rd    : in  std_logic;
 		out_ready : out std_logic;
@@ -40,6 +40,8 @@ architecture Behavioral of okt_ecu is
 	signal usb_ready 			  : std_logic;
 	signal fifo_r_en_end 	  : std_logic; 
    signal fifo_r_en_latched  : std_logic;
+	
+	signal n_command: std_logic_vector(COMMAND_BIT_WIDTH - 1 downto 0);
 
 	-- DEBUG
 	attribute MARK_DEBUG : string;
@@ -47,8 +49,9 @@ architecture Behavioral of okt_ecu is
 
 begin
 
-	ack_n <= n_ack_n;
+	ecu_out_ack_n <= n_ack_n;
 	status <= "00000" & usb_ready & fifo_empty & fifo_full;
+	n_command <= cmd;
 
 	caputre_fifo : entity work.okt_fifo
 		generic map(
@@ -93,7 +96,7 @@ begin
 
 		case r_okt_ecu_control_state is
 			when idle =>
-				if (req_n = '0') then
+				if (req_n = '0' and n_command(0) = '1' ) then
 					n_okt_ecu_control_state <= req_fall_0;
 
 				elsif (r_timestamp = TIMESTAMP_OVF) then

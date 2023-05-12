@@ -25,12 +25,16 @@ entity okt_cu is                        -- Control Unit
 		input_sel : out   std_logic_vector(NUM_INPUTS - 1 downto 0);
 		-- Leds
 		status    : out   std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
-		-- OSU interface
+		-- ECI and OSU interface
 		cmd	 	 :	out	std_logic_vector(COMMAND_BIT_WIDTH - 1 downto 0)
 	);
 end okt_cu;
 
 architecture Behavioral of okt_cu is
+
+	constant Mask_MON    :    std_logic_vector(2 downto 0):="001";
+	constant Mask_PASS    :    std_logic_vector(2 downto 0):="010";
+	constant Mask_SEQ    :    std_logic_vector(2 downto 0):="100";
 
 	signal n_command   : std_logic_vector(COMMAND_BIT_WIDTH - 1 downto 0);
 	signal n_input_sel : std_logic_vector(NUM_INPUTS - 1 downto 0);
@@ -67,7 +71,7 @@ begin
 
 	input_sel <= n_input_sel;
 	
-	n_command <= cmd;
+	cmd <= n_command;
 
 	okHI : work.FRONTPANEL.okHost
 		port map(
@@ -140,6 +144,10 @@ begin
 		end if;
 	end process;
 
+
+
+
+
 	-- Multiplexer that select the data path depending of the command
 	command_multiplexer : process(n_command, epA0_read, n_ecu_data, n_ecu_ready)
 	begin
@@ -148,16 +156,22 @@ begin
 		epA0_ready                             <= '0';
 		status_n(LEDS_BITS_WIDTH - 1 downto 1) <= (others => '0');
 
-		case n_command is
-			when "001" | "011" | "101" =>                -- ECU command. Send out captured event to USB
-				n_ecu_rd    <= epA0_read;
-				epA0_datain <= n_ecu_data;
-				epA0_ready  <= n_ecu_ready;
-				status_n(1) <= '1';     -- Set ECU led
-				
-			when others =>
-				null;
-		end case;
+		if ((n_command and Mask_MON) = Mask_MON) then -- MON command. Send out captured event to USB
+			n_ecu_rd    <= epA0_read;
+			epA0_datain <= n_ecu_data;
+			epA0_ready  <= n_ecu_ready;
+			status_n(1) <= '1';     -- Set MON led
+		end if;
+
+		if ((n_command and Mask_PASS) = Mask_PASS) then -- PASS command. Send out inputs events through NODE_IN output
+			status_n(2) <= '1';     -- Set PASS led
+		end if;
+		
+		if ((n_command and Mask_SEQ) = Mask_SEQ) then -- SEQ command. Send out inputs events through NODE_IN output
+			--TODO
+			status_n(3) <= '1';     -- Set SEQ led
+		end if;
+		
 	end process;
 
 end Behavioral;
