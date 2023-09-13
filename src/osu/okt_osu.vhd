@@ -22,8 +22,7 @@ USE ieee.std_logic_1164.ALL;
 use ieee.std_logic_unsigned.all;
 USE ieee.numeric_std.ALL;
 use work.okt_global_pkg.all;
-use work.okt_osu_pkg.all;
-
+use work.okt_top_pkg.all;
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
 --use IEEE.NUMERIC_STD.ALL;
@@ -62,7 +61,7 @@ begin
 
 	n_command <= cmd;
 
-Output_MUX: process (clk, rst_n, cmd, ecu_in_ack_n, node_in_osu_ack_n, ecu_node_ack_n)
+Output_MUX: process (rst_n, n_command, ecu_in_ack_n, node_in_osu_ack_n, ecu_node_ack_n, aer_in_data, req_in_data_n)
 begin
   if rst_n = '0' then --Reset all values to inactive when RST is active (low)
     node_req_n <= '1';
@@ -73,7 +72,7 @@ begin
    ecu_node_out_ack_n <= '1';
 	node_in_data <= (others => '0');
 	  
-    case cmd is
+    case n_command is
 	 
       when "001" => --State MON switches off output and connects its EMU_ACK to IMU_ACK
 			ecu_node_out_ack_n <= ecu_in_ack_n;

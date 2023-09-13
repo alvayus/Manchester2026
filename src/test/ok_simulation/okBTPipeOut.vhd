@@ -11,6 +11,7 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use work.parameters.all;
 use work.mappings.all;
+use std.env.finish;
 
 entity okBTPipeOut is
 	port (
@@ -44,7 +45,7 @@ begin
 		wait for 1ns;
 		if ((ep_addr < x"A0") or (ep_addr > x"BF")) then
 			report "okBTPipeOut endpoint address outside valid range, must be between 0xA0 and 0xBF" severity FAILURE;
-			std.env.finish;
+			finish;
 		end if;
 	end process;
 end arch;

@@ -60,6 +60,7 @@ architecture Behavioral of okt_cu is
 	signal epA0_ready       : std_logic;
 
 	signal status_n : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
+	
 
 begin
 
@@ -73,7 +74,8 @@ begin
 	
 	cmd <= n_command;
 
-	okHI : work.FRONTPANEL.okHost
+	--okHI : work.FRONTPANEL.okHost
+	okHI : okHost
 		port map(
 			okUH  => okUH,
 			okHU  => okHU,
@@ -85,7 +87,8 @@ begin
 		);
 	clk <= okClk;
 
-	okOR : work.FRONTPANEL.okWireOR
+
+	okOR : okWireOR
 		generic map(
 			N => OK_NUM_okEHx_END_POINTS
 		)
@@ -95,7 +98,7 @@ begin
 		);
 
 	-- WireIn to receive command from USB
-	cmd_EP : work.FRONTPANEL.okWireIn
+	cmd_EP : okWireIn
 		port map(
 			okHE       => okHE,
 			ep_addr    => x"00",
@@ -103,15 +106,15 @@ begin
 		);
 
 	-- WireIn to receive IMU input_sel from USB
-	selInput_EP : work.FRONTPANEL.okWireIn
+	selInput_EP : okWireIn
 		port map(
 			okHE       => okHE,
 			ep_addr    => x"01",
 			ep_dataout => ep01wire
 		);
 
-	-- WireIn to receive sw rst from USB
-	rst_EP : work.FRONTPANEL.okWireIn
+	 --WireIn to receive sw rst from USB
+	rst_EP : okWireIn
 		port map(
 			okHE       => okHE,
 			ep_addr    => x"02",
@@ -120,8 +123,8 @@ begin
 	rst_sw      <= ep02wire(0);
 	status_n(0) <= ep02wire(0);
 
-	-- PipeOut to send data out using the USB
-	data_out_EP : work.FRONTPANEL.okBTPipeOut
+	 --PipeOut to send data out using the USB
+	data_out_EP : okBTPipeOut
 		port map(
 			okHE           => okHE,
 			okEH           => okEHx(1 * OK_EH_WIDTH_BUS - 1 downto 0 * OK_EH_WIDTH_BUS),
@@ -143,11 +146,7 @@ begin
 			n_input_sel <= ep01wire(NUM_INPUTS - 1 downto 0);
 		end if;
 	end process;
-
-
-
-
-
+	
 	-- Multiplexer that select the data path depending of the command
 	command_multiplexer : process(n_command, epA0_read, n_ecu_data, n_ecu_ready)
 	begin

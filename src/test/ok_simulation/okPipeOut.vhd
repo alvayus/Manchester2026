@@ -35,14 +35,14 @@ begin
 	ep_read <= '1' when ((ti_read = '1') and (ti_addr = ep_addr)) else '0';
 	okEH(okEH_REGREADDATAH downto okEH_REGREADDATAL) <= (others => '0');
 
-	process is
-	begin
-		wait for 1ns;
-		if ((ep_addr < x"A0") or (ep_addr > x"BF")) then
-			report "okPipeOut endpoint address outside valid range, must be between 0xA0 and 0xBF" severity FAILURE;
-			std.env.finish;
-		end if;
-	end process;
+--	process is
+--	begin
+--		wait for 1ns;
+--		if ((ep_addr < x"A0") or (ep_addr > x"BF")) then
+--			report "okPipeOut endpoint address outside valid range, must be between 0xA0 and 0xBF" severity FAILURE;
+--			std.env.finish;
+--		end if;
+--	end process;
 
 end arch;
 

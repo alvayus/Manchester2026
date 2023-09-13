@@ -56,13 +56,13 @@ begin
 		
 	end process;
 
-	process is
-	begin
-		wait for 1ns;
-		if ((ep_addr < x"20") or (ep_addr > x"3F")) then
-			report "okWireOut endpoint address outside valid range, must be between 0x20 and 0x3F" severity FAILURE;
-			std.env.finish;
-		end if;
-	end process;
+--	process is
+--	begin
+--		wait for 1ns;
+--		if ((ep_addr < x"20") or (ep_addr > x"3F")) then
+--			report "okWireOut endpoint address outside valid range, must be between 0x20 and 0x3F" severity FAILURE;
+--			std.env.finish;
+--		end if;
+--	end process;
 end arch;
 

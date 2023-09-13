@@ -86,7 +86,7 @@ begin
 
 	end process signals_update;
 
-	process(r_okt_ecu_control_state, req_n, r_timestamp, aer_data, fifo_full)
+	process(r_okt_ecu_control_state, req_n, r_timestamp, aer_data, fifo_full, n_command)
 	begin
 		n_okt_ecu_control_state <= r_okt_ecu_control_state;
 		n_timestamp             <= r_timestamp + 1;

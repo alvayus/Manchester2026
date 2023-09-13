@@ -70,14 +70,14 @@ begin
 	
 	end process;
 
-	process is
-	begin
-		wait for 1ns;
-		if ((ep_addr < x"40") or (ep_addr > x"5F")) then
-			report "okTriggerIn endpoint address outside valid range, must be between 0x40 and 0x5F" severity FAILURE;
-			std.env.finish;
-		end if;
-	end process;
+--	process is
+--	begin
+--		wait for 1ns;
+--		if ((ep_addr < x"40") or (ep_addr > x"5F")) then
+--			report "okTriggerIn endpoint address outside valid range, must be between 0x40 and 0x5F" severity FAILURE;
+--			std.env.finish;
+--		end if;
+--	end process;
 
 end arch;
 

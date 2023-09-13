@@ -84,10 +84,9 @@ architecture simulate of okt_top_tb is
 
 	type state_handshake is (idle, req_fall);
 	signal current_state_out, next_state_out : state_handshake;
-	
 
 	---------------------------------------------------------------------------------------------
-	
+	for all: okHI use entity work.FRONTPANEL.okHost;
 	--------------------------------------------------------------------------
 	-- Begin functional body
 	--------------------------------------------------------------------------
@@ -816,31 +815,36 @@ begin
 			UpdateWireIns;
 		end procedure;
 		
-		
 	begin
 		FrontPanelReset;
 		wait for 1 ns;
-		select_command(x"0000_0001"); 
+
+		-- Enable command=ECU
+		select_command(x"0000_0001");
+		-- Select input 1
 		select_input(x"0000_0001");
-		wait for 100 ns;
+		wait for 1 us;
+		-- Send sw rst
+		send_sw_rst(x"0000_0001");
+		send_sw_rst(x"0000_0000");
+		-- Enable command=ECU
+		select_command(x"0000_0001");
+		-- Disable inputs
+		select_input(x"0000_0000");
+		wait for 1 us;
+		-- Select input 2
 		select_input(x"0000_0002");
-		wait for 100 ns;
-		select_input(x"0000_0004");
-		wait for 100 ns;
-		select_input(x"0000_0007");		
 		-- Check data
-		--read_USB_data(5);
+		read_USB_data(5);
 		wait for 1 us;
 
 		-- Select input 1 and 2
-		select_command(x"0000_0002");
 		select_input(x"0000_0003");
 		-- Check data
 		read_USB_data(1000);
 		wait for 1 us;
 		
 		-- Select input 1, 2 and 3
-		select_command(x"0000_0003");
 		select_input(x"0000_0007");
 		-- Check data
 		read_USB_data(1000);
@@ -968,6 +972,4 @@ begin
 
 		end case;
 	end process;
-	
-	
 end simulate;

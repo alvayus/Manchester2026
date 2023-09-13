@@ -5,7 +5,6 @@ USE ieee.std_logic_1164.ALL;
 use ieee.std_logic_unsigned.all;
 USE ieee.numeric_std.ALL;
 use work.okt_global_pkg.all;
-use work.okt_osu_pkg.all;
 use work.okt_top_pkg.all;
 
 ENTITY okt_osu_tb IS
