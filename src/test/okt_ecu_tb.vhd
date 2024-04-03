@@ -3,6 +3,7 @@ LIBRARY ieee;
 USE ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all; -- @suppress "Deprecated package"
 use work.okt_global_pkg.all;
+use work.okt_ecu_pkg.all;
 
 ENTITY okt_ecu_tb IS
 END okt_ecu_tb;
@@ -17,6 +18,7 @@ ARCHITECTURE behavior OF okt_ecu_tb IS
 
     signal aer_data_r : std_logic_vector(BUFFER_BITS_WIDTH-1 downto 0) := (others => '0');
     signal force_ovf  : std_logic;
+	 signal n_command: std_logic_vector(COMMAND_BIT_WIDTH - 1 downto 0);
 
     --Outputs
     signal ack_n     : std_logic;
@@ -42,7 +44,8 @@ BEGIN
             ecu_out_ack_n     => ack_n,
             out_data  => out_data,
             out_rd    => out_rd,
-            out_ready => out_ready
+            out_ready => out_ready,
+				cmd => n_command
         );
 
     -- Clock process definitions

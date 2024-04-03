@@ -7,6 +7,8 @@ package okt_osu_pkg is
 	constant NODE_IN_DATA_BITS_WIDTH   : integer := 32; -- 28?
 	constant COMMAND_BIT_WIDTH 		  : integer := 3;
 	constant USB_BURST_WORDS           : integer := 4*1024;
+   constant TIMESTAMP_OVF       		  : std_logic_vector(TIMESTAMP_BITS_WIDTH - 1 downto 0) := (others => '1');
+
 
 
 end okt_osu_pkg;

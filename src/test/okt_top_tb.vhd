@@ -739,6 +739,7 @@ begin
 		variable i              : integer;
 		variable j              : natural;
 		variable ReadPipe       : PIPEOUT_ARRAY;
+		variable WritePipe		: PIPEIN_ARRAY;
 		variable num_write_line : integer := 0;
 
 		---------------------------------------------------------------------------------
@@ -809,6 +810,45 @@ begin
 				i := i + 1;
 			end loop;
 		end procedure read_USB_data;
+
+--
+procedure write_USB_data(num_USB_transfers : integer) is
+begin
+    write(msg_line, STRING'("Writing values into USB pipe 93: "));
+    writeline(output, msg_line);
+    i := 0;
+
+    while i < num_USB_transfers loop
+        --WriteToBlockPipeIn(x"93", 1024, pipeInSize);
+        j := 0;
+        while j < pipeInSize loop
+		  
+			pipeIn(j+0)     := x"FF";
+			pipeIn(j+1)     := x"FF";
+			pipeIn(j+2)     := x"FF";
+			pipeIn(j+3)     := x"FF";
+			pipeIn(j+4)     := x"00";
+			pipeIn(j+5)     := x"00";
+			pipeIn(j+6)     := x"00";
+			pipeIn(j+7)     := x"00";
+
+            write(msg_line, INTEGER'(num_write_line));
+            write(msg_line, STRING'(" Ts: 0x"));
+            hwrite(msg_line, STD_LOGIC_VECTOR'(pipeIn(j + 3)) & STD_LOGIC_VECTOR'(pipeIn(j + 2)));
+            hwrite(msg_line, STD_LOGIC_VECTOR'(pipeIn(j + 1)) & STD_LOGIC_VECTOR'(pipeIn(j)));
+            write(msg_line, STRING'(" - Addr 0x"));
+            hwrite(msg_line, STD_LOGIC_VECTOR'(pipeIn(j + 7)) & STD_LOGIC_VECTOR'(pipeIn(j + 6)));
+            hwrite(msg_line, STD_LOGIC_VECTOR'(pipeIn(j + 5)) & STD_LOGIC_VECTOR'(pipeIn(j + 4)));
+            writeline(output, msg_line);
+            num_write_line := num_write_line + 1;
+            j := j + 8;
+        end loop;
+		  WriteToBlockPipeIn(x"93", 1024, pipeInSize);
+        i := i + 1;
+    end loop;
+end procedure write_USB_data;
+
+--
 		
 		procedure send_sw_rst(rst_command : std_logic_vector(31 downto 0)) is
 		begin
@@ -819,22 +859,28 @@ begin
 		
 	begin
 		FrontPanelReset;
-		wait for 1 ns;
+		wait for 10 ns;
+		select_command(x"0000_0000"); 
+		select_input(x"0000_0000");
+		wait for 10 ns;
+		select_input(x"0000_0002");
 		select_command(x"0000_0001"); 
-		--select_input(x"0000_0001");
-		--wait for 100 ns;
-		--select_input(x"0000_0002");
-		--wait for 100 ns;
-		--select_input(x"0000_0004");
-		--wait for 100 ns;
-		select_input(x"0000_0001");
-		--wait for 10 ns;		
+		wait for 100 ns;
+		read_USB_data(2);
+		select_command(x"0000_0003");
+		wait for 100 ns;
+		select_command(x"0000_0002");
+		wait for 100 ns;		
 		-- Check data
-		--read_USB_data(5);
-		--wait for 100 ns;
-
+		select_command(x"0000_0004");
+		write_USB_data(2);
+		wait for 100 ns;
+		select_command(x"0000_0000");
+		--read_USB_data(64);
+		wait for 100 ns;
+		
 		-- Select input 1 and 2
-		--select_command(x"0000_0002");
+		
 		--select_input(x"0000_0002");
 		--wait for 10 ns;
 		-- Check data
