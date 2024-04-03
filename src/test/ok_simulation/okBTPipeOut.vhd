@@ -30,6 +30,7 @@ architecture arch of okBTPipeOut is
 	signal ti_blockstrobe : std_logic;
 	
 begin
+
 	ti_read          <= okHE(okHE_READ);
 	ti_addr          <= okHE(okHE_ADDRH downto okHE_ADDRL);
 	ti_blockstrobe   <= okHE(okHE_BLOCKSTROBE);

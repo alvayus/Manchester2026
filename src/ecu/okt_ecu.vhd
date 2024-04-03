@@ -40,6 +40,7 @@ architecture Behavioral of okt_ecu is
 	signal fifo_empty  		  : std_logic;
 	signal fifo_full   		  : std_logic;
 	signal fifo_almost_full   : std_logic;
+	signal fifo_almost_empty   : std_logic;
 	
 	signal usb_ready 			  : std_logic;
 	signal fifo_r_en_end 	  : std_logic; 
@@ -70,7 +71,8 @@ begin
 			r_en   => fifo_r_en,
 			empty  => fifo_empty,
 			full   => fifo_full,
-			almost_full => fifo_almost_full
+			almost_full => fifo_almost_full,
+			almost_empty => fifo_almost_empty
 		);
 
 	out_data  <= fifo_r_data;
@@ -113,7 +115,7 @@ begin
 					n_okt_ecu_control_state <= timestamp_overflow_0;
 
 				elsif (fifo_full = '0') then
-					fifo_w_data(BUFFER_BITS_WIDTH - 1 downto 0) <= r_timestamp;
+					fifo_w_data(TIMESTAMP_BITS_WIDTH - 1 downto 0) <= r_timestamp;
 					fifo_w_en                                      <= '1';
 					n_timestamp                                    <= (others => '0');
 					n_okt_ecu_control_state                        <= req_fall_1;

@@ -66,6 +66,7 @@ architecture Behavioral of okt_osu is
 	signal fifo_empty  		  : std_logic;
 	signal fifo_full   		  : std_logic;
 	signal fifo_almost_full   : std_logic;
+	signal fifo_almost_empty  : std_logic;
 	
 	signal usb_ready 			  : std_logic;
 	signal fifo_w_en_end 	  : std_logic; 
@@ -77,11 +78,11 @@ architecture Behavioral of okt_osu is
 	
 	signal out_req: std_logic := '1'; --output request
 	signal out_ack: std_logic := '1'; --output ack
-	signal aer_data: std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
+	signal aer_data,Limit_ts: std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
 	
 	
-	signal r_timestamp, n_timestamp, Limit_ts : std_logic_vector(TIMESTAMP_BITS_WIDTH - 1 downto 0);
-	type state is (idle, timestamp_set, timestamp_check, wait_ack_rise, data_trigger_0, data_trigger_1, discard_aer);
+	signal r_timestamp, n_timestamp : std_logic_vector(TIMESTAMP_BITS_WIDTH - 1 downto 0);
+	type state is (idle, timestamp_check, wait_ack_rise, data_trigger_0, data_trigger_1, wait_ovf);
 	signal r_okt_osu_control_state, n_okt_osu_control_state : state;
 
 begin
@@ -102,7 +103,8 @@ begin
 			r_en   => fifo_r_en,
 			empty  => fifo_empty,
 			full   => fifo_full,
-			almost_full => fifo_almost_full
+			almost_full => fifo_almost_full,
+			almost_empty => fifo_almost_empty
 		);
 		
 			fifo_w_data  <= in_data;
@@ -190,59 +192,57 @@ begin
 
 	case r_okt_osu_control_state is
 		when idle => --En idle se espera a que ACK sea 1 y CMD sea 100. Si es así, se pasa a Timestamp_set_0
-			if (out_ack = '1' and n_command(2) = '1' ) then								--if ready_to_send
-				n_okt_osu_control_state 	<= timestamp_set;								--next state
+			if (out_ack = '1' and n_command(2) = '1' and fifo_empty = '0') then								--if ready_to_send
+				n_okt_osu_control_state 			<= timestamp_check;						--next state
 			end if;
 
-		when timestamp_set => -- Se lee el timestamp de la FIFO y se guarda en r_timestamp. Se pone REQ a 1 y se pasa a timestamp_set_1
-			if (fifo_empty = '0') then															--if fifo_not_empty
-				--n_timestamp                      <= (others => '0');					--reset count
-				n_okt_osu_control_state          <= timestamp_check;					--next state
-			end if;
+--		when timestamp_set => -- Se lee el timestamp de la FIFO y se guarda en r_timestamp. Se pone REQ a 1 y se pasa a timestamp_set_1
+--			if (fifo_empty = '0') then															--if fifo_not_empty
+--				n_okt_osu_control_state          <= timestamp_check;					--next state
+--			end if;
 
-		when timestamp_check => --Aqui se espera a que Timestamp sea 0. Cuando lo sea, se pasa a data_trigger.
-			Limit_ts <= fifo_r_data(BUFFER_BITS_WIDTH - 1 downto 0); 						--set limit
+		when timestamp_check => --Aqui se espera Limit_ts ticks. Cuando lo sea, se pasa a data_trigger.
+			Limit_ts <= fifo_r_data(BUFFER_BITS_WIDTH - 1 downto 0); 				--set limit
 			
-			if (Limit_ts = x"FFFFFFFF") then									--else if limit=overflow
-				fifo_r_en                                   	<= '1';							--read new fifo bank
-				aer_data 												<= (others => '0');										--reset output
-				n_okt_osu_control_state 							<= discard_aer;							--state idle
+			if (Limit_ts = x"FFFFFFFF") then													--else if limit=overflow
+				fifo_r_en                        <= '1';
+				n_okt_osu_control_state 			<= wait_ovf;							--state idle
 			
-			elsif (r_timestamp + 2 > Limit_ts) then									--if limit_reached
-				fifo_r_en                                   	<= '1';							--read new fifo bank
-				n_okt_osu_control_state                     	<= data_trigger_0;						--next state
+			elsif (r_timestamp + 2 > Limit_ts) then										--if limit_reached
+				fifo_r_en                        <= '1';									--read new fifo bank
+				n_okt_osu_control_state          <= data_trigger_0;					--next state
 				n_timestamp                      <= (others => '0');					--reset count
 			end if;
 
-		when data_trigger_0 => -- Aqui se pone REQ a 0 y se dispara el dato										--if ack_fall
-			n_okt_osu_control_state <= data_trigger_1;								--next state
-			--n_timestamp                      <= (others => '0');					--reset count
+		when data_trigger_0 =>  																--if ack_fall
+			n_okt_osu_control_state <= data_trigger_1;									--next state
 
 		when data_trigger_1 => -- Aqui se pone REQ a 0 y se dispara el dato
-			aer_data <= fifo_r_data(BUFFER_BITS_WIDTH - 1 downto 0)  ;						--set output
-			out_req <= '0';												-- request fall
-			if (out_ack = '0') then											--if ack_fall
-				n_okt_osu_control_state <= wait_ack_rise;								--next state
-				fifo_r_en                                   <= '1';							--read new fifo bank
+			aer_data <= fifo_r_data(BUFFER_BITS_WIDTH - 1 downto 0)  ;				--set output
+			out_req <= '0';																		-- request fall
+			if (out_ack = '0') then																--if ack_fall
+				n_okt_osu_control_state <= wait_ack_rise;									--next state
+				fifo_r_en               <= '1';												--read new fifo bank
 			end if;
 			
 		when wait_ack_rise =>
-			out_req<= '1';												--request rise
-			aer_data             	<= (others => '0');									--reset output
-			if (out_ack = '1') then												--if ack_rise
-				n_okt_osu_control_state <= idle;										--state_idle
+			out_req<= '1';																			--request rise
+			aer_data             		<= (others => '0');								--reset output
+			if (out_ack = '1') then																--if ack_rise
+				n_okt_osu_control_state <= idle;												--state_idle
 			end if;
 
-		when discard_aer =>
-			aer_data             	<= (others => '0');									--reset output
-			fifo_r_en                                   <= '1';
-			n_okt_osu_control_state <= idle;										--state_idle
-
+		when wait_ovf =>
+			if (r_timestamp = TIMESTAMP_OVF) then											--if ack_rise
+				aer_data             	<= (others => '0');								--reset output
+				fifo_r_en               <= '1';
+				n_okt_osu_control_state <= idle;
+			end if;
 	end case;
 end process;
 	
 
---Control USB: REVISAR
+--Control USB: TODO: que no se bloquee al intentar llenarse de datos
 control_usb_ready : process(clk, rst_n) is
 	variable usb_burst : integer;
 begin
@@ -254,23 +254,22 @@ begin
 		
 	elsif rising_edge(clk) then --NORMAL
 		 fifo_w_en_latched <= fifo_w_en;									-- latched = enable	
-		if fifo_w_en_latched = '1' and fifo_w_en = '0' then							-- if latched = 1 and enable = 0
+		if fifo_w_en_latched = '1' and fifo_w_en = '0' then		-- if latched = 1 and enable = 0
 			  fifo_w_en_end <= '1';											-- end = 1
-		 else													-- else
+		else																		-- else
 			  fifo_w_en_end <= '0';											-- end = 0
-		 end if;
-		if fifo_empty = '1' then 							-- if fifo_empty
-			usb_ready <= '1';											-- ready = 1
-			usb_burst := USB_BURST_WORDS;										-- burst = 4096
-		elsif usb_ready = '1' then										-- else if ready = 1
-			 usb_burst := usb_burst - 1;										-- burst - 1
-			 if usb_burst = 0 or fifo_w_en_end = '1' then								-- if burst = 0 or end = 1
+		end if;		
+		if fifo_almost_empty = '1' or fifo_empty = '1' then 		-- if fifo is getting empty
+			usb_ready <= '1';													-- ready = 1
+			usb_burst := USB_BURST_WORDS;									-- burst = 4096
+		elsif usb_ready = '1' then											-- else if ready = 1
+			 usb_burst := usb_burst - 1;									-- burst - 1
+			 if usb_burst = 0 or fifo_w_en_end = '1' then			-- if burst = 0 or end = 1
 				  usb_ready <= '0';											-- ready = 0
 			 end if;
 		end if;
 	end if;
 end process;
-	
 	
 end Behavioral;
 

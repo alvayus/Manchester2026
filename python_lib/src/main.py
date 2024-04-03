@@ -6,11 +6,11 @@ import time
 time_start = time.perf_counter()
 
 
-# 64 Channels,  Stereo, 16 bits address, recorded using jAER
+# # 64 Channels,  Stereo, 16 bits address, recorded using jAER
 # NUM_CHANNELS = 64
 # BIN_SIZE = 20000
 
-# pyNAVIS settings
+# # pyNAVIS settings
 # SETTINGS = MainSettings(num_channels=NUM_CHANNELS, mono_stereo=1, on_off_both=1, address_size=2, ts_tick=1,
 #                         bin_size=BIN_SIZE)
 

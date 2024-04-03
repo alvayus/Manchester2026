@@ -144,11 +144,10 @@ signals_update : process(clk, rst_n)
     begin
         if rst_n = '0' then
             current_state <= idle;
-				current_state_0 <= idle;
+
 
         elsif rising_edge(clk) then
             current_state <= next_state;
-				current_state_0 <= next_state_0;
 				
         end if;
     end process; 
@@ -159,13 +158,12 @@ signals_update : process(clk, rst_n)
         next_state <= current_state;
         out_osu_data   <= (others => '0');
 		  out_osu_wr    <= '0';
+		  
 		  if out_osu_ready = '1' then
         case current_state is
             when idle =>
-                
-                    next_state <= req_fall;
-                
-
+                next_state <= req_fall;
+					 
             when req_fall =>
                 out_osu_wr    <= '1';
                 out_osu_data <= x"0000001B"; 
@@ -178,7 +176,7 @@ signals_update : process(clk, rst_n)
 
             when req_fall_1 =>
                 out_osu_wr    <= '1';
-                out_osu_data <= x"FFFFFFFF"; 
+                out_osu_data <= x"00000005"; 
                 next_state <= req_rise_1;
 
             when req_rise_1 =>

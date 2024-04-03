@@ -152,7 +152,7 @@ begin
 		port map(
 			okHE           => okHE,
 			okEH           => okEHx(1 * OK_EH_WIDTH_BUS - 1 downto 0 * OK_EH_WIDTH_BUS),
-			ep_addr        => x"A0", -- Por qué esta direccion y no otra?
+			ep_addr        => x"A0", 
 			ep_read        => epA0_read,
 			ep_blockstrobe => epA0_blockstrobe,
 			ep_datain      => epA0_datain,
@@ -193,9 +193,13 @@ begin
 		epA0_datain                            <= (others => '0');
 		epA0_ready                             <= '0';
 		
-		n_osu_wr                               <= '0';
-		n_osu_data                           <= (others => '0');
-		ep93_ready                             <= '0';
+		--n_osu_wr                               <= '0';
+		--n_osu_data                             <= (others => '0');
+		--ep93_ready                             <= '0';
+		
+		n_osu_wr    <= ep93_write;
+		n_osu_data  <= ep93_dataout;
+		ep93_ready  <= n_osu_ready;
 		
 		status_n(LEDS_BITS_WIDTH - 1 downto 1) <= (others => '0');
 
@@ -211,9 +215,9 @@ begin
 		end if;
 		
 		if ((n_command and Mask_SEQ) = Mask_SEQ) then -- SEQ command. Send out inputs events through NODE_IN output 
-			n_osu_wr    <= ep93_write;
-			n_osu_data  <= ep93_dataout;
-			ep93_ready  <= n_osu_ready;
+--			n_osu_wr    <= ep93_write;
+--			n_osu_data  <= ep93_dataout;
+--			ep93_ready  <= n_osu_ready;
 			 
 			status_n(3) <= '1';     -- Set SEQ led
 		end if;
