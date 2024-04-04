@@ -823,19 +823,11 @@ begin
         j := 0;
         while j < pipeInSize loop
 		  
-<<<<<<< HEAD
 			pipeIn(j+0)     := x"07";
 			pipeIn(j+1)     := x"00";
 			pipeIn(j+2)     := x"00";
 			pipeIn(j+3)     := x"00";
 			pipeIn(j+4)     := x"56";
-=======
-			pipeIn(j+0)     := x"FF";
-			pipeIn(j+1)     := x"FF";
-			pipeIn(j+2)     := x"FF";
-			pipeIn(j+3)     := x"FF";
-			pipeIn(j+4)     := x"00";
->>>>>>> c0ea32db7e0068b5c23ff21752dd02823d580492
 			pipeIn(j+5)     := x"00";
 			pipeIn(j+6)     := x"00";
 			pipeIn(j+7)     := x"00";
@@ -874,7 +866,6 @@ end procedure write_USB_data;
 		select_input(x"0000_0002");
 		select_command(x"0000_0001"); 
 		wait for 100 ns;
-<<<<<<< HEAD
 		read_USB_data(20);
 		--select_command(x"0000_0003");
 		--wait for 100 ns;
@@ -887,20 +878,6 @@ end procedure write_USB_data;
 		--select_command(x"0000_0000");
 		--read_USB_data(64);
 		--wait for 100 ns;
-=======
-		read_USB_data(2);
-		select_command(x"0000_0003");
-		wait for 100 ns;
-		select_command(x"0000_0002");
-		wait for 100 ns;		
-		-- Check data
-		select_command(x"0000_0004");
-		write_USB_data(2);
-		wait for 100 ns;
-		select_command(x"0000_0000");
-		--read_USB_data(64);
-		wait for 100 ns;
->>>>>>> c0ea32db7e0068b5c23ff21752dd02823d580492
 		
 		-- Select input 1 and 2
 		
