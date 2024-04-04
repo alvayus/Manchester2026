@@ -82,7 +82,11 @@ architecture Behavioral of okt_osu is
 	
 	
 	signal r_timestamp, n_timestamp : std_logic_vector(TIMESTAMP_BITS_WIDTH - 1 downto 0);
+<<<<<<< HEAD
 	type state is (idle, timestamp_check, wait_ack_rise, data_trigger_0, data_trigger_1, wait_ovf);
+=======
+	type state is (idle, timestamp_set, timestamp_check, wait_ack_rise, data_trigger_0, data_trigger_1, wait_ovf);
+>>>>>>> c0ea32db7e0068b5c23ff21752dd02823d580492
 	signal r_okt_osu_control_state, n_okt_osu_control_state : state;
 
 begin
@@ -192,6 +196,7 @@ begin
 
 	case r_okt_osu_control_state is
 		when idle => --En idle se espera a que ACK sea 1 y CMD sea 100. Si es así, se pasa a Timestamp_set_0
+<<<<<<< HEAD
 			if (out_ack = '1' and n_command(2) = '1' and fifo_empty = '0') then								--if ready_to_send
 				n_okt_osu_control_state 			<= timestamp_check;						--next state
 			end if;
@@ -200,6 +205,16 @@ begin
 --			if (fifo_empty = '0') then															--if fifo_not_empty
 --				n_okt_osu_control_state          <= timestamp_check;					--next state
 --			end if;
+=======
+			if (out_ack = '1' and n_command(2) = '1' ) then								--if ready_to_send
+				n_okt_osu_control_state 			<= timestamp_set;						--next state
+			end if;
+
+		when timestamp_set => -- Se lee el timestamp de la FIFO y se guarda en r_timestamp. Se pone REQ a 1 y se pasa a timestamp_set_1
+			if (fifo_empty = '0') then															--if fifo_not_empty
+				n_okt_osu_control_state          <= timestamp_check;					--next state
+			end if;
+>>>>>>> c0ea32db7e0068b5c23ff21752dd02823d580492
 
 		when timestamp_check => --Aqui se espera Limit_ts ticks. Cuando lo sea, se pasa a data_trigger.
 			Limit_ts <= fifo_r_data(BUFFER_BITS_WIDTH - 1 downto 0); 				--set limit
