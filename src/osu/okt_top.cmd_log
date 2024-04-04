@@ -1,0 +1,6 @@
+xst -intstyle ise -ifn "/home/ise/ISE_projects/okaertool/src/osu/okt_top.xst" -ofn "/home/ise/ISE_projects/okaertool/src/osu/okt_top.syr" 
+xst -intstyle ise -ifn "/home/ise/ISE_projects/okaertool/src/osu/okt_top.xst" -ofn "/home/ise/ISE_projects/okaertool/src/osu/okt_top.syr" 
+xst -intstyle ise -ifn "/home/ise/ISE_projects/okaertool/src/osu/okt_top.xst" -ofn "/home/ise/ISE_projects/okaertool/src/osu/okt_top.syr" 
+xst -intstyle ise -ifn "/home/ise/ISE_projects/okaertool/src/osu/okt_top.xst" -ofn "/home/ise/ISE_projects/okaertool/src/osu/okt_top.syr" 
+xst -intstyle ise -ifn "/home/ise/ISE_projects/okaertool/src/osu/okt_top.xst" -ofn "/home/ise/ISE_projects/okaertool/src/osu/okt_top.syr" 
+xst -intstyle ise -ifn "/home/ise/ISE_projects/okaertool/src/osu/okt_top.xst" -ofn "/home/ise/ISE_projects/okaertool/src/osu/okt_top.syr" 
