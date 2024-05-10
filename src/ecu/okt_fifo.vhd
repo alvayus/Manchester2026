@@ -18,19 +18,21 @@ entity okt_fifo is -- Fifo
         r_en   : in  std_logic;
         empty  : out std_logic;
         full   : out std_logic;
-        almost_full : out std_logic
+        almost_full : out std_logic;
+		  almost_empty : out std_logic
     );
 end okt_fifo;
 
 architecture Behavioral of okt_fifo is
     constant ADDR_SIZE : positive         := positive(ceil(log2(real(DEPTH))));
-    type registerFileType is array (0 to DEPTH - 1) of std_logic_vector(r_data'range);
+	 type registerFileType is array (0 to DEPTH - 1) of std_logic_vector(r_data'range);
     signal registers   : registerFileType := (others => (others => '0'));
     signal read_addr   : unsigned(ADDR_SIZE downto 0);
     signal write_addr  : unsigned(ADDR_SIZE downto 0);
     signal output      : std_logic_vector(r_data'range);
     signal r_full      : std_logic;
     signal r_almost_full : std_logic;
+	 signal r_almost_empty : std_logic;
     
 begin
     regFile : process(clk) is
@@ -45,6 +47,7 @@ begin
                 output     <= (others => '0');
                 r_full     <= '0';
                 r_almost_full <= '0';
+					 r_almost_empty <= '0';
                 
             else
                 -- This accounts for the case that the FIFO is full, that is 
@@ -57,12 +60,26 @@ begin
                     r_full <= r_full;
                 end if;
                 
-                if (write_addr - read_addr) >= to_unsigned(DEPTH - FIFO_ALM_FULL_OFFSET, write_addr'length) then
-                    r_almost_full <= '1';
-                else
-                    r_almost_full <= '0';
-                end if;
-
+					 if write_addr > read_addr then
+						 if (write_addr - read_addr) >= to_unsigned(DEPTH - FIFO_ALM_FULL_OFFSET, write_addr'length) then
+							  r_almost_full <= '1';
+						 elsif (write_addr - read_addr) <= to_unsigned(FIFO_ALM_EMPTY_OFFSET, write_addr'length) then
+							  r_almost_empty <= '1';
+						 else
+							  r_almost_full <= '0';
+							  r_almost_empty <= '0';
+						 end if;
+					 elsif write_addr < read_addr then
+						 if (DEPTH - read_addr + write_addr) >= to_unsigned(DEPTH - FIFO_ALM_FULL_OFFSET, write_addr'length) then
+							  r_almost_full <= '1';
+						 elsif (DEPTH - read_addr + write_addr) <= to_unsigned(FIFO_ALM_EMPTY_OFFSET, write_addr'length) then
+							  r_almost_empty <= '1';
+						 else
+							  r_almost_full <= '0';
+							  r_almost_empty <= '0';
+						 end if;	
+					 end if;
+					 
                 -- Handle the write enable line
                 if w_en = '1' then
                     if (r_full = '0' or r_en = '1') and write_addr < to_unsigned(DEPTH, write_addr'length) then
@@ -106,5 +123,6 @@ begin
     empty <= '1' when (read_addr = write_addr) and (r_full = '0') else '0';
     full  <= r_full;
     almost_full <= r_almost_full;
+	 almost_empty <= r_almost_empty;
     r_data <= output;
 end Behavioral;

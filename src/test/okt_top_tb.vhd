@@ -73,20 +73,22 @@ architecture simulate of okt_top_tb is
 	signal node_data    : std_logic_vector(NODE_DATA_BITS_WIDTH - 1 downto 0);
 	signal node_req_n   : std_logic;
 	signal node_ack_n   : std_logic;
-	signal out_data     : std_logic_vector(NODE_DATA_BITS_WIDTH - 1 downto 0); -- @suppress "signal out_data is never read"
+	signal out_data     : std_logic_vector(NODE_IN_DATA_BITS_WIDTH - 1 downto 0); -- @suppress "signal out_data is never read"
 	signal out_req_n    : std_logic;
 	signal out_ack_n    : std_logic;
+	signal cuenta			: std_logic_vector(7 downto 0);
 
 	type state is (idle, req_fall, req_rise);
 	signal current_state_rome_a, next_state_rome_a : state;
 	signal current_state_rome_b, next_state_rome_b : state;
 	signal current_state_node, next_state_node     : state;
 
-	type state_handshake is (idle, req_fall);
+	type state_handshake is (idle, req_fall, delay1,delay2);
 	signal current_state_out, next_state_out : state_handshake;
+	
 
 	---------------------------------------------------------------------------------------------
-
+	
 	--------------------------------------------------------------------------
 	-- Begin functional body
 	--------------------------------------------------------------------------
@@ -108,10 +110,10 @@ begin
 			rome_b_ack_n => rome_b_ack_n,
 			node_data    => node_data,
 			node_req_n   => node_req_n,
-			node_ack_n   => node_ack_n,
+			node_out_ack_n   => node_ack_n,
 			out_data     => out_data,
 			out_req_n    => out_req_n,
-			out_ack_n    => out_ack_n,
+			node_in_ack_n    => out_ack_n,
 			leds         => leds
 		);
 
@@ -157,7 +159,7 @@ begin
 		                                          --    host interface checks for ready (0-255)
 		variable PostReadyDelay   : integer := 5; -- REQUIRED: # of clocks after ready is asserted and
 		                                          --    check that the block transfer begins (0-255)
-		variable pipeInSize       : integer := 1024; -- REQUIRED: byte (must be even) length of default
+		variable pipeInSize       : integer := 4*1024; -- REQUIRED: byte (must be even) length of default
 		--    PipeIn; Integer 0-2^32
 		variable pipeOutSize      : integer := 4*1024; -- REQUIRED: byte (must be even) length of default
 		--    PipeOut; Integer 0-2^32
@@ -738,6 +740,7 @@ begin
 		variable i              : integer;
 		variable j              : natural;
 		variable ReadPipe       : PIPEOUT_ARRAY;
+		variable WritePipe		: PIPEIN_ARRAY;
 		variable num_write_line : integer := 0;
 
 		---------------------------------------------------------------------------------
@@ -782,7 +785,7 @@ begin
 				ReadFromBlockPipeOut(x"a0", 1024, pipeOutSize);
 
 				j := 0;
-				while j < 4*1024 loop
+				while j < pipeOutSize loop
 					-- Timestamp
 					ReadPipe(j)     := pipeOut(j);
 					ReadPipe(j + 1) := pipeOut(j + 1);
@@ -808,6 +811,45 @@ begin
 				i := i + 1;
 			end loop;
 		end procedure read_USB_data;
+
+--
+procedure write_USB_data(num_USB_transfers : integer) is
+begin
+    write(msg_line, STRING'("Writing values into USB pipe 93: "));
+    writeline(output, msg_line);
+    i := 0;
+
+    while i < num_USB_transfers loop
+        --WriteToBlockPipeIn(x"93", 1024, pipeInSize);
+        j := 0;
+        while j < pipeInSize loop
+		  
+			pipeIn(j+0)     := x"22";
+			pipeIn(j+1)     := x"22";
+			pipeIn(j+2)     := x"00";
+			pipeIn(j+3)     := x"00";
+			pipeIn(j+4)     := x"2F";
+			pipeIn(j+5)     := x"2F";
+			pipeIn(j+6)     := x"00";
+			pipeIn(j+7)     := x"00";
+
+            write(msg_line, INTEGER'(num_write_line));
+            write(msg_line, STRING'(" Ts: 0x"));
+            hwrite(msg_line, STD_LOGIC_VECTOR'(pipeIn(j + 3)) & STD_LOGIC_VECTOR'(pipeIn(j + 2)));
+            hwrite(msg_line, STD_LOGIC_VECTOR'(pipeIn(j + 1)) & STD_LOGIC_VECTOR'(pipeIn(j)));
+            write(msg_line, STRING'(" - Addr 0x"));
+            hwrite(msg_line, STD_LOGIC_VECTOR'(pipeIn(j + 7)) & STD_LOGIC_VECTOR'(pipeIn(j + 6)));
+            hwrite(msg_line, STD_LOGIC_VECTOR'(pipeIn(j + 5)) & STD_LOGIC_VECTOR'(pipeIn(j + 4)));
+            writeline(output, msg_line);
+            num_write_line := num_write_line + 1;
+            j := j + 8;
+        end loop;
+		  WriteToBlockPipeIn(x"80", 1024, pipeInSize);
+        i := i + 1;
+    end loop;
+end procedure write_USB_data;
+
+--
 		
 		procedure send_sw_rst(rst_command : std_logic_vector(31 downto 0)) is
 		begin
@@ -815,55 +857,39 @@ begin
 			UpdateWireIns;
 		end procedure;
 		
+		
 	begin
 		FrontPanelReset;
-		wait for 1 ns;
-
-		-- Enable command=ECU
-		select_command(x"0000_0001");
-		-- Select input 1
-		select_input(x"0000_0001");
-		wait for 1 us;
-		-- Send sw rst
-		send_sw_rst(x"0000_0001");
-		send_sw_rst(x"0000_0000");
-		-- Enable command=ECU
-		select_command(x"0000_0001");
-		-- Disable inputs
+		wait for 10 ns;
+		select_command(x"0000_0000"); 
 		select_input(x"0000_0000");
-		wait for 1 us;
-		-- Select input 2
-		select_input(x"0000_0002");
-		-- Check data
-		read_USB_data(5);
-		wait for 1 us;
-
+		wait for 10 ns;
+		--select_input(x"0000_0004");
+		select_command(x"0000_0004"); 
+		write_USB_data(10);
+		wait for 100 ns;
+		--read_USB_data(1);
+		--select_command(x"0000_0005"); 
+		--wait for 100 ns;
+		
 		-- Select input 1 and 2
-		select_input(x"0000_0003");
+		
+		--select_input(x"0000_0002");
+		--wait for 10 ns;
 		-- Check data
-		read_USB_data(1000);
-		wait for 1 us;
+		--read_USB_data(10);
+		--wait for 100 ns;
 		
 		-- Select input 1, 2 and 3
-		select_input(x"0000_0007");
+		--select_command(x"0000_0003");
+		--select_input(x"0000_0004");
+		--wait for 10 ns;
 		-- Check data
-		read_USB_data(1000);
+		--read_USB_data(1024);
 
 		wait;
 	end process sim_process;
 	
---	input_process : process is
---		procedure input_management is
---			variable line_v : line;
---    		file read_file : text;
---    		
---		begin
---			file_open(read_file, "source.txt", read_mode);
---		end procedure;
---	begin
---		
---	end process input_process;
-
 	signals_update : process(hi_clk, rst_n)
 	begin
 		if rst_n = '0' then
@@ -960,16 +986,27 @@ begin
 
 		case current_state_out is
 			when idle =>
-				if out_req_n = '0' then
+				if (out_req_n = '0') then
 					next_state_out <= req_fall;
 				end if;
+				
+			when delay1 =>
+				next_state_out <= delay2;
+			
 
 			when req_fall =>
 				out_ack_n <= '0';
-				if out_req_n = '1' then
-					next_state_out <= idle;
+				next_state_out <= delay2;
+
+			
+			when delay2 =>
+			out_ack_n <= '0';
+			if (out_req_n = '1') then
+				next_state_out <= idle;
 				end if;
 
 		end case;
 	end process;
+	
+	
 end simulate;

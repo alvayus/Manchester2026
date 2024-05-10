@@ -69,7 +69,7 @@ BEGIN
 			input_select => input_select,
 			out_data     => out_data,
 			out_req_n    => out_req,
-			out_ack      => out_ack
+			ecu_node_in_ack_n      => out_ack
 		);
 
 	-- Clock process definitions

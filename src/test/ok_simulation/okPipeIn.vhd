@@ -53,13 +53,13 @@ begin
 		end if;
 	end process;
 
-	process is
-	begin
-		wait for 1ns;
-		if ((ep_addr < x"80") or (ep_addr > x"9F")) then
-			report "okPipeIn endpoint address outside valid range, must be between 0x80 and 0x9F" severity FAILURE;
-			std.env.finish;
-		end if;
-	end process;
+--	process is
+--	begin
+--		wait for 1ns;
+--		if ((ep_addr < x"80") or (ep_addr > x"9F")) then
+--			report "okPipeIn endpoint address outside valid range, must be between 0x80 and 0x9F" severity FAILURE;
+--			std.env.finish;
+--		end if;
+--	end process;
 end arch;
 

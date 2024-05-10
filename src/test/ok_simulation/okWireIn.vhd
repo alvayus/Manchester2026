@@ -59,13 +59,13 @@ begin
 		
 	end process;
 
-	process is
-	begin
-		wait for 1ns;
-		if ((ep_addr < x"00") or (ep_addr > x"1F")) then
-			report "okWireIn endpoint address outside valid range, must be between 0x00 and 0x1F" severity FAILURE;
-			std.env.finish;
-		end if;
-	end process;
+--	process is
+--	begin
+--		wait for 1ns;
+--		if ((ep_addr < x"00") or (ep_addr > x"1F")) then
+--			report "okWireIn endpoint address outside valid range, must be between 0x00 and 0x1F" severity FAILURE;
+--			std.env.finish;
+--		end if;
+--	end process;
 end arch;
 

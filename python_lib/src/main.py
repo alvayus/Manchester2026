@@ -28,7 +28,7 @@ BIT_FILE = r"C:\Users\PabloSQ_2023\PycharmProjects\Okaertool_local\OKT_TOP 32 ns
 opal = okt.Okaertool(bit_file=BIT_FILE)
 opal.init()
 opal.select_inputs(inputs=['Port_A'])
-spikes = opal.monitor(buffer_length=(1*1024*1024), events=300000)
+spikes = opal.monitor(buffer_length=(1*1024*1024), events=17000000)
 print('--------------------------')
 time_elapsed = (time.perf_counter() - time_start)
 print('Tiempo Final de Simulación', time_elapsed)
