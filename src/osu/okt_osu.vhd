@@ -78,11 +78,11 @@ architecture Behavioral of okt_osu is
 	
 	signal out_req: std_logic := '1'; --output request
 	signal out_ack: std_logic := '1'; --output ack
-	signal aer_data,Limit_ts: std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
+	signal aer_data, limit_ts: std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
 	
 	
-	signal r_timestamp, n_timestamp : std_logic_vector(TIMESTAMP_BITS_WIDTH - 1 downto 0);
-	type state is (idle, timestamp_check, wait_ack_rise, data_trigger_0, data_trigger_1, wait_ovf);
+	signal rise_timestamp, next_timestamp : std_logic_vector(TIMESTAMP_BITS_WIDTH - 1 downto 0);
+	type state is (idle, timestamp_check, wait_ack_rise, data_trigger_0, data_trigger_1,data_trigger_2, wait_ovf);
 	signal r_okt_osu_control_state, n_okt_osu_control_state : state;
 
 begin
@@ -111,165 +111,182 @@ begin
 		   fifo_w_en <= in_wr;
 		   in_ready <= usb_ready;
 			
+	
+--------------------------------------------------------------------------------------------------------------------
+--Output Multiplexer
+--------------------------------------------------------------------------------------------------------------------
+	Output_MUX: process (rst_n, n_command, ecu_in_ack_n, node_in_osu_ack_n, aer_data, out_req, ecu_node_ack_n, aer_in_data, req_in_data_n)
+	begin
+	  if rst_n = '0' then --Reset all values to inactive when RST is active (low)
+		 node_req_n <= '1';
+		 ecu_node_out_ack_n <= '1';
+		 node_in_data <= (others => '0');
+		 out_ack <= '1';
+	  else
+		node_req_n <= '1';
+		ecu_node_out_ack_n <= '1';
+		node_in_data <= (others => '0');
+		out_ack <= '1';
+		  
+		 case n_command is
+		 
+			when "001" => --MONITOR: Deactivates output and has IMU_ack connected to ECU_ack
+				ecu_node_out_ack_n <= ecu_in_ack_n;
 
-Output_MUX: process (rst_n, n_command, ecu_in_ack_n, node_in_osu_ack_n, aer_data, out_req, ecu_node_ack_n, aer_in_data, req_in_data_n)
-begin
-  if rst_n = '0' then --Reset all values to inactive when RST is active (low)
-    node_req_n <= '1';
-    ecu_node_out_ack_n <= '1';
-    node_in_data <= (others => '0');
-	 out_ack <= '1';
-  else
-	node_req_n <= '1';
-   ecu_node_out_ack_n <= '1';
-	node_in_data <= (others => '0');
-	out_ack <= '1';
-	  
-    case n_command is
-	 
-      when "001" => --State MON switches off output and connects its EMU_ACK to IMU_ACK
-			ecu_node_out_ack_n <= ecu_in_ack_n;
+			when "010" => --PASS: bypasses output and connects IMU_ack to OUT_ack
+				ecu_node_out_ack_n <= node_in_osu_ack_n;
+				node_in_data <= aer_in_data;
+				node_req_n <= req_in_data_n;
 
-      when "010" => --State PASS bypasses output and connects OUT_ACK to IMU_ACK
-			ecu_node_out_ack_n <= node_in_osu_ack_n;
-			node_in_data <= aer_in_data;
-			node_req_n <= req_in_data_n;
+			when "011" => --MERGER: bypasses output and connects OUT_ACK and EMU_ACK to IMU_ACK via latch
+				ecu_node_out_ack_n <= ecu_node_ack_n;
+				node_in_data <= aer_in_data;
+				node_req_n <= req_in_data_n;
 
-      when "011" => --State MON_AND_PASS bypasses output and connects OUT_ACK and EMU_ACK to IMU_ACK via or gate
-			ecu_node_out_ack_n <= ecu_node_ack_n;
-			node_in_data <= aer_in_data;
-			node_req_n <= req_in_data_n;
+			when "100" => --SEQUENCER: Activates output and cuts connections to internal ack signals
+				node_in_data <= aer_data;
+				node_req_n <= out_req;
+				out_ack <= node_in_osu_ack_n;
+				
+			--when "101" => --DEBUG: TODO
+			--	node_in_data <= aer_data;
+			--	node_req_n <= out_req;
+			--	out_ack <= node_in_osu_ack_n;
+			--	ecu_node_out_ack_n <= ecu_in_ack_n;
 
-		when "100" =>
-			node_in_data <= aer_data;
-			node_req_n <= out_req;
-			out_ack <= node_in_osu_ack_n;
-
-      when others => --TODO
-		
-    end case;
-  end if;
-end process;
-
--- ACK_Latch: Latches ACK signals so that a new message is sent only after having received both acks. No timeout for the moment.
-ACK_latch: process (ecu_in_ack_n, node_in_osu_ack_n)
-begin
-	if ecu_in_ack_n = '0' and node_in_osu_ack_n = '0' then
-		ecu_node_ack_n <= '0';
-	elsif ecu_in_ack_n = '1' and node_in_osu_ack_n = '1' then
-		ecu_node_ack_n <= '1';
-	end if;
-end process;
-
+			when others => --TODO
+			
+		 end case;
+	  end if;
+	end process;
 
 --------------------------------------------------------------------------------------------------------------------
---From here on, sequencer code is written. ALPHA VER.
+--ACK Latch for bypass and monitor commands
 --------------------------------------------------------------------------------------------------------------------
-
--- signals_update: This process will update the control_state and timestamp signals
-signals_update : process(clk, rst_n)
-begin
-	if rst_n = '0' then
-		r_okt_osu_control_state <= idle;
-		r_timestamp             <= (others => '0');
-	
-	elsif rising_edge(clk) then
-		r_okt_osu_control_state <= n_okt_osu_control_state;
-		r_timestamp             <= n_timestamp;
-	end if;
-end process;
-
--- Take data from FIFO - REVISAR
-output_sequencer: process(r_okt_osu_control_state, r_timestamp, out_ack, fifo_r_data, fifo_empty, n_command, Limit_ts)
-begin
-	-- Me faltan inicializaciones? estados?
-	n_okt_osu_control_state <= r_okt_osu_control_state;
-	n_timestamp             <= r_timestamp + 1;
-	fifo_r_en               <= '0';
-	Limit_ts						<= (others => '0');
-	aer_data						<= (others => '0');
-	out_req						<= '1';
-
-	case r_okt_osu_control_state is
-		when idle => --En idle se espera a que ACK sea 1 y CMD sea 100. Si es así, se pasa a Timestamp_set_0
-			if (out_ack = '1' and n_command(2) = '1' and fifo_empty = '0') then								--if ready_to_send
-				n_okt_osu_control_state 			<= timestamp_check;						--next state
-			end if;
-
---		when timestamp_set => -- Se lee el timestamp de la FIFO y se guarda en r_timestamp. Se pone REQ a 1 y se pasa a timestamp_set_1
---			if (fifo_empty = '0') then															--if fifo_not_empty
---				n_okt_osu_control_state          <= timestamp_check;					--next state
---			end if;
-
-		when timestamp_check => --Aqui se espera Limit_ts ticks. Cuando lo sea, se pasa a data_trigger.
-			Limit_ts <= fifo_r_data(BUFFER_BITS_WIDTH - 1 downto 0); 				--set limit
-			
-			if (Limit_ts = x"FFFFFFFF") then													--else if limit=overflow
-				fifo_r_en                        <= '1';
-				n_okt_osu_control_state 			<= wait_ovf;							--state idle
-			
-			elsif (r_timestamp + 2 > Limit_ts) then										--if limit_reached
-				fifo_r_en                        <= '1';									--read new fifo bank
-				n_okt_osu_control_state          <= data_trigger_0;					--next state
-				n_timestamp                      <= (others => '0');					--reset count
-			end if;
-
-		when data_trigger_0 =>  																--if ack_fall
-			n_okt_osu_control_state <= data_trigger_1;									--next state
-
-		when data_trigger_1 => -- Aqui se pone REQ a 0 y se dispara el dato
-			aer_data <= fifo_r_data(BUFFER_BITS_WIDTH - 1 downto 0)  ;				--set output
-			out_req <= '0';																		-- request fall
-			if (out_ack = '0') then																--if ack_fall
-				n_okt_osu_control_state <= wait_ack_rise;									--next state
-				fifo_r_en               <= '1';												--read new fifo bank
-			end if;
-			
-		when wait_ack_rise =>
-			out_req<= '1';																			--request rise
-			aer_data             		<= (others => '0');								--reset output
-			if (out_ack = '1') then																--if ack_rise
-				n_okt_osu_control_state <= idle;												--state_idle
-			end if;
-
-		when wait_ovf =>
-			if (r_timestamp = TIMESTAMP_OVF) then											--if ack_rise
-				aer_data             	<= (others => '0');								--reset output
-				fifo_r_en               <= '1';
-				n_okt_osu_control_state <= idle;
-			end if;
-	end case;
-end process;
-	
-
---Control USB: TODO: que no se bloquee al intentar llenarse de datos
-control_usb_ready : process(clk, rst_n) is
-	variable usb_burst : integer;
-begin
-	if rst_n = '0' then --RESET
-		usb_ready <= '0';
-		usb_burst := 0;
-		fifo_w_en_end <= '0';
-		fifo_w_en_latched <= '0';
-		
-	elsif rising_edge(clk) then --NORMAL
-		 fifo_w_en_latched <= fifo_w_en;									-- latched = enable	
-		if fifo_w_en_latched = '1' and fifo_w_en = '0' then		-- if latched = 1 and enable = 0
-			  fifo_w_en_end <= '1';											-- end = 1
-		else																		-- else
-			  fifo_w_en_end <= '0';											-- end = 0
-		end if;		
-		if fifo_almost_empty = '1' or fifo_empty = '1' then 		-- if fifo is getting empty
-			usb_ready <= '1';													-- ready = 1
-			usb_burst := USB_BURST_WORDS;									-- burst = 4096
-		elsif usb_ready = '1' then											-- else if ready = 1
-			 usb_burst := usb_burst - 1;									-- burst - 1
-			 if usb_burst = 0 or fifo_w_en_end = '1' then			-- if burst = 0 or end = 1
-				  usb_ready <= '0';											-- ready = 0
-			 end if;
+	-- ACK_Latch: Latches ACK signals so that a new message is sent only after having received both acks. No timeout for the moment.
+	ACK_latch: process (ecu_in_ack_n, node_in_osu_ack_n)
+	begin
+		if ecu_in_ack_n = '0' and node_in_osu_ack_n = '0' then
+			ecu_node_ack_n <= '0';
+		elsif ecu_in_ack_n = '1' and node_in_osu_ack_n = '1' then
+			ecu_node_ack_n <= '1';
 		end if;
-	end if;
-end process;
+	end process;
+
+--------------------------------------------------------------------------------------------------------------------
+--FSM synchronous signals
+--------------------------------------------------------------------------------------------------------------------
+	-- signals_update: This process will update the control_state and timestamp signals
+	signals_update : process(clk, rst_n)
+	begin
+		if rst_n = '0' then
+			r_okt_osu_control_state <= idle;
+			rise_timestamp             <= (others => '0');
+		
+		elsif rising_edge(clk) then
+			r_okt_osu_control_state <= n_okt_osu_control_state;
+			rise_timestamp             <= next_timestamp;
+		end if;
+	end process signals_update;
+	
+	
+--------------------------------------------------------------------------------------------------------------------
+--FSM sequencer code. Beta VER.
+--------------------------------------------------------------------------------------------------------------------
+	-- Take data from FIFO - REVISAR
+	output_sequencer: process(r_okt_osu_control_state, out_ack, n_command, fifo_empty, rise_timestamp)
+	begin
+		n_okt_osu_control_state <= r_okt_osu_control_state;
+		next_timestamp             <= rise_timestamp + 1;	
+
+		fifo_r_en               	<= '0';
+		aer_data							<= (others => '0');
+		limit_ts							<= (others => '0');
+		out_req							<= '1';
+
+		case r_okt_osu_control_state is
+		
+			when idle =>
+				if (out_ack = '1' and n_command(2) = '1' and fifo_empty = '0') then
+					n_okt_osu_control_state 			<= timestamp_check;
+				end if;
+
+			when timestamp_check =>
+				limit_ts <= fifo_r_data(BUFFER_BITS_WIDTH - 1 downto 0);
+				if (limit_ts = x"FFFFFFFF") then
+					fifo_r_en                        <= '1';
+					n_okt_osu_control_state 			<= wait_ovf;
+				elsif (limit_ts > 0 and rise_timestamp > limit_ts - 2) then
+					fifo_r_en                        <= '1';
+					n_okt_osu_control_state          <= data_trigger_0;
+					next_timestamp                      <= (others => '0');
+				end if;
+
+			when data_trigger_0 =>
+				n_okt_osu_control_state <= data_trigger_1;
+
+			when data_trigger_1 =>
+				aer_data <= fifo_r_data(BUFFER_BITS_WIDTH - 1 downto 0);
+				out_req <= '0';
+				if (out_ack = '0') then
+					n_okt_osu_control_state <= data_trigger_2;
+				end if;
+				
+			when data_trigger_2 =>
+				aer_data <= fifo_r_data(BUFFER_BITS_WIDTH - 1 downto 0);
+				n_okt_osu_control_state <= wait_ack_rise;
+				fifo_r_en <= '1';				
+				
+			when wait_ack_rise =>
+				if (out_ack = '1') then
+					aer_data <= (others => '0');
+					n_okt_osu_control_state <= idle;
+				end if;
+
+			when wait_ovf =>
+			limit_ts (TIMESTAMP_BITS_WIDTH - 1 downto 0) <= TIMESTAMP_OVF;
+				if (limit_ts > 0 and rise_timestamp > limit_ts - 2) then
+					aer_data <= (others => '0');
+					fifo_r_en <= '1';
+					n_okt_osu_control_state <= idle;
+				end if;
+		end case;
+	end process output_sequencer;
+		
+	
+--------------------------------------------------------------------------------------------------------------------
+--Control USB.
+--------------------------------------------------------------------------------------------------------------------
+	--Control USB: TODO: que no se bloquee al intentar llenarse de datos
+	control_usb_ready : process(clk, rst_n) is
+		variable usb_burst : integer;
+	begin
+		if rst_n = '0' then --RESET
+			usb_ready <= '0';
+			usb_burst := 0;
+			fifo_w_en_end <= '0';
+			fifo_w_en_latched <= '0';
+			
+		elsif rising_edge(clk) then --NORMAL
+			 fifo_w_en_latched <= fifo_w_en;									-- latched = enable	
+			if fifo_w_en_latched = '1' and fifo_w_en = '0' then		-- if latched = 1 and enable = 0
+				  fifo_w_en_end <= '1';											-- end = 1
+			else																		-- else
+				  fifo_w_en_end <= '0';											-- end = 0
+			end if;		
+			if fifo_almost_empty = '1' or fifo_empty = '1' then 		-- if fifo is getting empty
+				usb_ready <= '1';													-- ready = 1
+				usb_burst := USB_BURST_WORDS;									-- burst = 4096
+			elsif usb_ready = '1' then											-- else if ready = 1
+				 usb_burst := usb_burst - 1;									-- burst - 1
+				 if usb_burst = 0 or fifo_w_en_end = '1' then			-- if burst = 0 or end = 1
+					  usb_ready <= '0';											-- ready = 0
+				 end if;
+			end if;
+		end if;
+	end process control_usb_ready;
 	
 end Behavioral;
+
+
 

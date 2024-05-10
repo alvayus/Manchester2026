@@ -65,6 +65,7 @@ architecture Behavioral of okt_top is
 	--status signals
 	signal status_cu 	: std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
 	signal status_ecu	: std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
+	signal status_osu	: std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
 	
 	signal cmd : std_logic_vector(COMMAND_BIT_WIDTH - 1 downto 0);
 	

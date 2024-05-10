@@ -76,13 +76,14 @@ architecture simulate of okt_top_tb is
 	signal out_data     : std_logic_vector(NODE_IN_DATA_BITS_WIDTH - 1 downto 0); -- @suppress "signal out_data is never read"
 	signal out_req_n    : std_logic;
 	signal out_ack_n    : std_logic;
+	signal cuenta			: std_logic_vector(7 downto 0);
 
 	type state is (idle, req_fall, req_rise);
 	signal current_state_rome_a, next_state_rome_a : state;
 	signal current_state_rome_b, next_state_rome_b : state;
 	signal current_state_node, next_state_node     : state;
 
-	type state_handshake is (idle, req_fall);
+	type state_handshake is (idle, req_fall, delay1,delay2);
 	signal current_state_out, next_state_out : state_handshake;
 	
 
@@ -823,12 +824,12 @@ begin
         j := 0;
         while j < pipeInSize loop
 		  
-			pipeIn(j+0)     := x"07";
-			pipeIn(j+1)     := x"00";
+			pipeIn(j+0)     := x"22";
+			pipeIn(j+1)     := x"22";
 			pipeIn(j+2)     := x"00";
 			pipeIn(j+3)     := x"00";
-			pipeIn(j+4)     := x"56";
-			pipeIn(j+5)     := x"00";
+			pipeIn(j+4)     := x"2F";
+			pipeIn(j+5)     := x"2F";
 			pipeIn(j+6)     := x"00";
 			pipeIn(j+7)     := x"00";
 
@@ -843,7 +844,7 @@ begin
             num_write_line := num_write_line + 1;
             j := j + 8;
         end loop;
-		  WriteToBlockPipeIn(x"93", 1024, pipeInSize);
+		  WriteToBlockPipeIn(x"80", 1024, pipeInSize);
         i := i + 1;
     end loop;
 end procedure write_USB_data;
@@ -863,20 +864,12 @@ end procedure write_USB_data;
 		select_command(x"0000_0000"); 
 		select_input(x"0000_0000");
 		wait for 10 ns;
-		select_input(x"0000_0002");
-		select_command(x"0000_0001"); 
+		--select_input(x"0000_0004");
+		select_command(x"0000_0004"); 
+		write_USB_data(10);
 		wait for 100 ns;
-		read_USB_data(20);
-		--select_command(x"0000_0003");
-		--wait for 100 ns;
-		--select_command(x"0000_0002");
-		--wait for 100 ns;		
-		-- Check data
-		select_command(x"0000_0004");
-		write_USB_data(20);
-		wait for 100 ns;
-		--select_command(x"0000_0000");
-		--read_USB_data(64);
+		--read_USB_data(1);
+		--select_command(x"0000_0005"); 
 		--wait for 100 ns;
 		
 		-- Select input 1 and 2
@@ -993,14 +986,23 @@ end procedure write_USB_data;
 
 		case current_state_out is
 			when idle =>
-				if out_req_n = '0' then
+				if (out_req_n = '0') then
 					next_state_out <= req_fall;
 				end if;
+				
+			when delay1 =>
+				next_state_out <= delay2;
+			
 
 			when req_fall =>
 				out_ack_n <= '0';
-				if out_req_n = '1' then
-					next_state_out <= idle;
+				next_state_out <= delay2;
+
+			
+			when delay2 =>
+			out_ack_n <= '0';
+			if (out_req_n = '1') then
+				next_state_out <= idle;
 				end if;
 
 		end case;

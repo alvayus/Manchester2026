@@ -132,7 +132,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 entity okWireOR is
 	generic (
-		N     : integer := 1
+		N     : integer := 2
 	);
 	port (
 		okEH   : out std_logic_vector(64 downto 0);
@@ -261,7 +261,7 @@ package FRONTPANEL is
 	attribute box_type of okRegisterBridge : component is "black_box";
 
 	component okWireOR
-	generic (N : integer := 1);
+	generic (N : integer := 2);
 	port (
 		okEH   : out std_logic_vector(64 downto 0);
 		okEHx  : in  std_logic_vector(N*65-1 downto 0));

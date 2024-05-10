@@ -72,10 +72,10 @@ architecture Behavioral of okt_cu is
 	signal epA0_blockstrobe : std_logic; -- @suppress "signal epA0_blockstrobe is never read"
 	signal epA0_ready       : std_logic;
 
-	signal ep93_dataout     : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
-	signal ep93_write       : std_logic;
-	signal ep93_blockstrobe : std_logic; -- @suppress "signal ep93_blockstrobe is never read"
-	signal ep93_ready       : std_logic;
+	signal ep80_dataout     : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
+	signal ep80_write       : std_logic;
+	signal ep80_blockstrobe : std_logic; -- @suppress "signal ep80_blockstrobe is never read"
+	signal ep80_ready       : std_logic;
 	
 	signal status_n : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
 	
@@ -164,11 +164,11 @@ begin
 		port map(
 			okHE           => okHE,
 			okEH           => okEHx(2 * OK_EH_WIDTH_BUS - 1 downto 1 * OK_EH_WIDTH_BUS),
-			ep_addr        => x"93", -- COMPROBAR LA DIRECCION
-			ep_write       => ep93_write,
-			ep_blockstrobe => ep93_blockstrobe,
-			ep_dataout     => ep93_dataout,
-			ep_ready       => ep93_ready
+			ep_addr        => x"80",
+			ep_write       => ep80_write,
+			ep_blockstrobe => ep80_blockstrobe,
+			ep_dataout     => ep80_dataout,
+			ep_ready       => ep80_ready
 		);
 
 	-- Reset command and input_sel signals
@@ -186,27 +186,21 @@ begin
 	-- Multiplexer that select the data path depending of the command
 	command_multiplexer : process(n_command,
 											epA0_read, n_ecu_data, n_ecu_ready, --ECU signals
-											ep93_write, ep93_dataout, n_osu_ready --OSU signals
+											ep80_write, ep80_dataout, n_osu_ready --OSU signals
 											)
 	begin
-		n_ecu_rd                               <= '0';
-		epA0_datain                            <= (others => '0');
-		epA0_ready                             <= '0';
 		
-		--n_osu_wr                               <= '0';
-		--n_osu_data                             <= (others => '0');
-		--ep93_ready                             <= '0';
-		
-		n_osu_wr    <= ep93_write;
-		n_osu_data  <= ep93_dataout;
-		ep93_ready  <= n_osu_ready;
+		n_ecu_rd    <= epA0_read;
+		epA0_datain <= n_ecu_data;
+		epA0_ready  <= n_ecu_ready;
+	
+		n_osu_wr    <= ep80_write;
+   	n_osu_data  <= ep80_dataout;
+		ep80_ready  <= n_osu_ready;
 		
 		status_n(LEDS_BITS_WIDTH - 1 downto 1) <= (others => '0');
 
 		if ((n_command and Mask_MON) = Mask_MON) then -- MON command. Send out captured event to USB
-			n_ecu_rd    <= epA0_read;
-			epA0_datain <= n_ecu_data;
-			epA0_ready  <= n_ecu_ready;
 			status_n(1) <= '1';     -- Set MON led
 		end if;
 
@@ -215,10 +209,6 @@ begin
 		end if;
 		
 		if ((n_command and Mask_SEQ) = Mask_SEQ) then -- SEQ command. Send out inputs events through NODE_IN output 
---			n_osu_wr    <= ep93_write;
---			n_osu_data  <= ep93_dataout;
---			ep93_ready  <= n_osu_ready;
-			 
 			status_n(3) <= '1';     -- Set SEQ led
 		end if;
 		
