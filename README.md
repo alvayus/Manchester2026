@@ -41,5 +41,5 @@ pip install pyokaertool
 The package is supported on Windows, Linux and MacOS.
 
 # Example of usage
-
+To use the python package, you will need to import the pyokaertool module in your python script. You can then create an instance of the OkaerTool class and use its methods to interact with the device. In the test folder of the python_package, you can find some example scripts (python notebook) that demonstrate how to use the package.
 
