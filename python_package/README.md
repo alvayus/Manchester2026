@@ -4,7 +4,7 @@ This is a Python library for OKAERTool that provides a simple way to interact wi
 ## Installation
 To install the library, you can use the following command:
 ```bash
-pip install pyOKAERTool
+pip install pyokaertool
 ```
 
 ## Usage

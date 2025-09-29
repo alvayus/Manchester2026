@@ -2,13 +2,13 @@
 - [Table of content](#table-of-content)
 - [Okaertool](#okaertool)
 - [Repository folders](#repository-folders)
+- [Block Diagram](#block-diagram)
 - [Compilation](#compilation)
+- [Python package installation](#python-package-installation)
+- [Example of usage](#example-of-usage)
 
 # okaertool
-This repository contains the source code for an AER (Address Event Representation) tool to monitor, log and play an stream of aer data. This controller has been implemented for hardware using verilog and VHDL rtl languaje.
-ISE Version: Xilinx ISE 14.7
-Architecture: Spartan-6
-Target(s): XEM6310-LX150
+This repository contains the source code for an AER (Address Event Representation) tool to monitor, log and play an stream of aer data. This controller has been implemented for hardware using verilog and VHDL rtl languaje. The hardware is based on a FPGA (Field Programmable Gate Array) from Opal Kelly, model XEM6310-LX150 or XEM7310-A200 (but not limited to these models). The device has been designed to be used in neuromorphic applications, where the data is represented as a stream of events (spikes). The device can be used to monitor and log the events received from neuromorphic sensors, such as DVS (Dynamic Vision Sensor) or NAS (Neuromorphic Auditory Sensor), and can also play back the events to other neuromorphic devices.
 
 # Repository folders
 - src: API source code of the device.
@@ -19,11 +19,27 @@ Target(s): XEM6310-LX150
   - test: It contains the testbench files for performance simultaion.
   - top: The top layer layout of this device. It contains the mapping of ports between units.
   - constraints: Device contraints.
-  - XEM6310-LX150: It contains the specific .ngc files provided by okaertool for this device.
-- python_lib: Contains a python program to test the performance of the device in real time.
+  - XEM6310-LX150: It contains the specific .ngc files provided by okaertool for this device. Also it contains the .ucf file for pin mapping.
+  - XEM7310-A200: It contains the specific .ngc files provided by okaertool for this device. Also it contains the .xdc file for pin mapping.
+- python_package: Python package to control the device via USB using the Opal Kelly FrontPanel API.
+  - test: Contains example scripts to use the python package.
 - doc: Contains the layout of the desired final design.
-- FrontPanel-Ubuntu18.04LTS-x64-5.2.3: Documentation.
 
-  # Block Diagram
-  <img align="right"  src="https://github.com/RTC-research-group/okaertool/blob/master/doc/okaertool.png"/>
+# Block Diagram
+<img align="right"  src="https://github.com/RTC-research-group/okaertool/blob/master/doc/okaertool.png"/>
+
+# Compilation
+The device can be synthesized using the Xilinx Vivado and ISE tools. Using the Xilinx synthesis tool, you can create a project for the specific FPGA platform you are using (XEM6310-LX150 or XEM7310-A200). You will need to add the source files from the src folder to the project, as well as the constraints file for the specific device. You will also need to add the .ngc files provided by okaertool for the specific device. Once you have added all the files, you can synthesize the design and generate the bitstream file.
+
+# Python package installation
+To install the python package, you will need to have Python 3.6 or higher installed on your system. You will also need to have the Opal Kelly FrontPanel drivers installed. You can download the drivers from the Opal Kelly website (https://pins.opalkelly.com/downloads). For windows, download the version 5.3.6. Once you have the drivers installed, you can install the python package using pip. You can run the following command in your terminal:
+
+```
+pip install pyokaertool
+```
+
+The package is supported on Windows, Linux and MacOS.
+
+# Example of usage
+
 
