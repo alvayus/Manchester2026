@@ -64,6 +64,10 @@ architecture Behavioral of okt_top is
 	signal rst_ext_n_latch_0 : std_logic;
 	signal rst_ext_n_latch_1 : std_logic;
 
+	signal port_a_ack_n_signal : std_logic;
+	signal port_b_ack_n_signal : std_logic;
+	signal port_c_ack_n_signal : std_logic;	
+
 	--cu signals
 	signal in_ecu_data   : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
 	signal in_ecu_rd     : std_logic;
@@ -80,7 +84,7 @@ architecture Behavioral of okt_top is
 
 	--status signals
 	signal status_cu  : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
-	-- signal status_ecu : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
+	signal status_ecu : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
 	-- signal status_osu : std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0);
 
 	signal cmd : std_logic_vector(COMMAND_BIT_WIDTH - 1 downto 0);
@@ -98,49 +102,72 @@ begin
 
 	-- 0 = led on; 1 = led off 
 	-- leds  <= not (status_ecu(2 downto 0) & "000" & status_cu(1 downto 0));
-	leds <= status_cu;
+	leds  <= not status_ecu;
+	-- leds <= not status_cu;
 	rst_n <= rst_ext_n_latch_1 and (not rst_sw);
 	clock <= okClk;
 	rst_sw_n <= not rst_sw;
 
-	-- Sync input signals
+	-- Syncronizer with bypass implemented when monitor is inactive
 	syncronizer : process(okClk, rst_n)
 	begin
 		if (rst_n = '0') then
+			--ROME A
 			port_a_req_latch_0 <= '1';
 			port_a_req_latch_1 <= '1';
 			port_a_data_latch_0 <= (others => '0');
 			port_a_data_latch_1 <= (others => '0');
+			--ROME B
 			port_b_req_latch_0 <= '1';
 			port_b_req_latch_1 <= '1';
 			port_b_data_latch_0 <= (others => '0');
 			port_b_data_latch_1 <= (others => '0');
+			--NODE IN
 			port_c_req_latch_0   <= '1';
 			port_c_req_latch_1   <= '1';
 			port_c_data_latch_0 <= (others => '0');
 			port_c_data_latch_1 <= (others => '0');
+			--NODE OUT
 			out_ack_n_latch_0 <= '1';
 			out_ack_n_latch_1 <= '1';
 			rst_ext_n_latch_0 <= '1';
 			rst_ext_n_latch_1 <= '1';
 
 		elsif rising_edge(okClk) then
-			port_a_req_latch_0 <= port_a_req_n;
-			port_a_req_latch_1 <= port_a_req_latch_0;
-			port_a_data_latch_0 <= port_a_data;
-			port_a_data_latch_1 <= port_a_data_latch_0;
-			port_b_req_latch_0 <= port_b_req_n;
-			port_b_req_latch_1 <= port_b_req_latch_0;
-			port_b_data_latch_0 <= port_b_data;
-			port_b_data_latch_1 <= port_b_data_latch_0;
-			port_c_req_latch_0   <= port_c_req_n;
-			port_c_req_latch_1   <= port_c_req_latch_0;
-			port_c_data_latch_0 <= port_c_data;
-			port_c_data_latch_1 <= port_c_data_latch_0;
+			--TODO: Implement OSU command latch
 			out_ack_n_latch_0 <= out_ack_n;
 			out_ack_n_latch_1 <= out_ack_n_latch_0;
+			
 			rst_ext_n_latch_0 <= rst_ext_n;
 			rst_ext_n_latch_1 <= rst_ext_n_latch_0;
+
+			if cmd(0) = '1' then
+				--ROME A
+				port_a_req_latch_0 <= port_a_req_n;
+				port_a_req_latch_1 <= port_a_req_latch_0;
+				port_a_data_latch_0 <= port_a_data;
+				port_a_data_latch_1 <= port_a_data_latch_0;
+				--ROME B
+				port_b_req_latch_0 <= port_b_req_n;
+				port_b_req_latch_1 <= port_b_req_latch_0;
+				port_b_data_latch_0 <= port_b_data;
+				port_b_data_latch_1 <= port_b_data_latch_0;
+				--NODE IN
+				port_c_req_latch_0   <= port_c_req_n;
+				port_c_req_latch_1   <= port_c_req_latch_0;
+				port_c_data_latch_0 <= port_c_data;
+				port_c_data_latch_1 <= port_c_data_latch_0;
+				--ACK MUX to IMU
+				port_a_ack_n <= port_a_ack_n_signal;
+				port_b_ack_n <= port_b_ack_n_signal;
+				port_c_ack_n <= port_c_ack_n_signal;
+
+			else
+				--ACK MUX to REQ
+				port_a_ack_n <= port_a_req_n;
+				port_b_ack_n <= port_b_req_n;
+				port_c_ack_n <= port_c_req_n;
+			end if;
 
 		end if;
 	end process;
@@ -182,15 +209,15 @@ begin
 			in0_data          => (BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto port_a_data_latch_1'length => '0') & port_a_data_latch_1,
 			in0_req_n         => port_a_req_latch_1,
 			-- in0_req_n         => port_a_req_n,
-			in0_ack_n         => port_a_ack_n,
+			in0_ack_n         => port_a_ack_n_signal,
 			in1_data          => (BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto port_b_data_latch_1'length => '0') & port_b_data_latch_1,
 			in1_req_n         => port_b_req_latch_1,
 			-- in1_req_n         => port_b_req_n,
-			in1_ack_n         => port_b_ack_n,
+			in1_ack_n         => port_b_ack_n_signal,
 			in2_data          => (BUFFER_BITS_WIDTH - INPUT_BITS_WIDTH - 1 downto port_c_data_latch_1'length => '0') & port_c_data_latch_1,
 			in2_req_n         => port_c_req_latch_1,
 			-- in2_req_n         => port_c_req_n,
-			in2_ack_n         => port_c_ack_n,
+			in2_ack_n         => port_c_ack_n_signal,
 			input_select      => input_sel,
 			out_data          => imu_aer_data,
 			out_req_n         => imu_req_n,
@@ -207,7 +234,7 @@ begin
 			out_data      => in_ecu_data,
 			out_rd        => in_ecu_rd,
 			out_ready     => in_ecu_ready,
-			-- status        => status_ecu,
+			status        => status_ecu,
 			cmd           => cmd        --Add process depending on cmd PASS or MON
 		);
 
