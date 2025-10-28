@@ -22,6 +22,7 @@ import time
 import logging
 import numpy as np
 import threading
+from queue import Queue
 from . import ok as ok
 
 class Spikes:
@@ -37,18 +38,15 @@ class Spikes:
         self.addresses = addresses
         self.timestamps = timestamps
 
-
     def __str__(self):
         return f"Addresses: {self.addresses}\nTimestamps: {self.timestamps}"
-
 
     def get_num_spikes(self):
         """
         Get the number of spikes in the struct.
         :return: Number of spikes.
         """
-        return len(self.addresses)   
-    
+        return len(self.addresses)
 
 
 class Okaertool:
@@ -66,10 +64,11 @@ class Okaertool:
     INWIRE_RESET_ENDPOINT = 0x02
     INWIRE_CONFIG_ENDPOINT = 0x03
     NUM_INPUTS = 3
-    USB_BLOCK_SIZE = 1024
     LOG_LEVEL = logging.INFO
     LOG_FILE = "okaertool.log"
-    SPIKE_SIZE_BYTES = 8
+    SPIKE_SIZE_BYTES = 8  # Each spike has a timestamp (4 bytes) and an address (4 bytes)
+    USB_TRANSFER_LENGTH = 1 * 1024 * 1024  # Must be multiple of USB_BLOCK_SIZE
+    
 
     def __init__(self, bit_file=None):
         """
@@ -81,16 +80,20 @@ class Okaertool:
         # Load the OpalKelly API and initialize the class attributes
         self.device = ok.okCFrontPanel()
         self.device_count = self.device.GetDeviceCount()
-        self.id = self.device.GetDeviceID()
+        self.device_info = ok.okTDeviceInfo()
         self.bit_file_path = bit_file
         self.inputs = []
         self.global_timestamp = 0
         self.is_monitoring = False
-        # Define the tread and a list of spikes (ts, addr) to collect spikes from all inputs during the monitor_forever() method
-        self.monitor_thread = None
-        self.spikes_ready = threading.Event()
+        
+        # USB reading thread and double buffer system
+        self.usb_read_thread = None
+        self.buffer_queue = Queue(maxsize=2)  # Double buffer using a queue
+        self.stop_usb_thread = threading.Event()
         self.lock = threading.Lock()
-        self.spikes = None
+        
+        # USB parameters
+        self.USB_BLOCK_SIZE = 16 * 1024  # Will be updated in init() based on USB speed
 
         # Create a logger
         self.logger = logging.getLogger('Okaertool')
@@ -146,12 +149,35 @@ class Okaertool:
         # Configure the FPGA with the bit file if it is defined
         if self.bit_file_path is not None:
             error = self.device.ConfigureFPGA(self.bit_file_path)
-            if error != 0:
+            if error != ok.okCFrontPanel.NoError:
                 self.logger.error(f"Error at okaertool FPGA configuration: {ok.okCFrontPanel_GetErrorString(error)}")
                 return -1
         else:
             self.logger.info("No bit file loaded. Ensure that the FPGA is already programmed")
         
+        # Get the device information
+        error = self.device.GetDeviceInfo(info=self.device_info)
+        if error != ok.okCFrontPanel.NoError:
+            self.logger.error(f"Error at okaertool GetDeviceInfo: {ok.okCFrontPanel_GetErrorString(error)}")
+            return -1
+        self.logger.info(f"Device product ID: {self.device_info.productID}, product name: {self.device_info.productName}, "
+                         f"USB speed: {self.device_info.usbSpeed},")
+        match self.device_info.usbSpeed:
+            case ok.OK_USBSPEED_SUPER:
+                self.USB_BLOCK_SIZE = 16 * 1024 # USB 3.0 SuperSpeed - Power of two [16..16384];
+                self.logger.info("USB 3.0 SuperSpeed. USB block size set to 16 KB")
+            case ok.OK_USBSPEED_HIGH:
+                self.USB_BLOCK_SIZE = 1024 # USB 2.0 HighSpeed - Power of two [16..1024]
+                self.logger.info("USB 2.0 HighSpeed. USB block size set to 1 KB")
+            case ok.OK_USBSPEED_FULL:
+                self.USB_BLOCK_SIZE = 64 # USB 1.1 FullSpeed - Power of two [16..64]
+                self.logger.info("USB 1.1 FullSpeed. USB block size set to 64 Bytes")
+                self.USB_BLOCK_SIZE = 64 # USB 1.1 FullSpeed - Power of two [16..64]
+            case ok.OK_USBSPEED_UNKNOWN:
+                self.logger.warning("Unknown USB speed. USB block size set to default 64 Bytes")
+                self.USB_BLOCK_SIZE = 64
+                
+        # Set the tool to idle mode
         self.__select_command__(['idle'])
         self.logger.info("okaertool initialized as idle")
         return 0
@@ -227,331 +253,277 @@ class Okaertool:
         self.device.UpdateWireIns()
 
 
-    def monitor(self, inputs=[], live= None, max_spikes=None, duration=None):
+    def _usb_reader_thread(self, buffer_size):
+        """
+        Thread function that continuously reads from USB and puts data into the buffer queue.
+        
+        :param buffer_size: Size of each buffer to allocate for USB reading
+        """
+        self.logger.debug("USB reader thread started")
+        
+        while not self.stop_usb_thread.is_set():
+            # Allocate a new buffer for this read
+            buffer = bytearray(buffer_size)
+            
+            # Blocking read from USB
+            num_read_bytes = self.device.ReadFromBlockPipeOut(
+                self.OUTPIPE_ENDPOINT, 
+                self.USB_BLOCK_SIZE, 
+                buffer
+            )
+            
+            if num_read_bytes < 0:
+                self.logger.warning(f'USB read error: {ok.okCFrontPanel_GetErrorString(num_read_bytes)}')
+                break
+            
+            if num_read_bytes > 0:
+                # Trim buffer to actual read size
+                buffer = buffer[:num_read_bytes]
+                # Put the buffer in the queue (blocks if queue is full)
+                try:
+                    self.buffer_queue.put(buffer, timeout=1.0)
+                except:
+                    self.logger.warning("Buffer queue full, dropping data")
+        
+        self.logger.debug("USB reader thread stopped")
+
+
+    def _process_buffer(self, buffer, spikes):
+        """
+        Process a buffer and extract spikes (timestamps and addresses).
+        
+        :param buffer: Buffer containing raw spike data
+        :param spikes: List of Spikes objects to populate
+        """
+        for b_idx in range(0, len(buffer), self.SPIKE_SIZE_BYTES):
+            if b_idx + self.SPIKE_SIZE_BYTES > len(buffer):
+                break
+            elif b_idx == 0:
+                continue  # Skip potential incomplete spike at start
+                
+            ts = int.from_bytes(buffer[b_idx:b_idx+4], byteorder='little', signed=False)
+            addr = int.from_bytes(buffer[b_idx+4:b_idx+8], byteorder='little', signed=False)
+            
+            # Skip null events
+            if ts == 0 or addr == 0:
+                # self.logger.warning(f'Null event skipped')
+                continue
+            
+            # Validate address. TODO: This check must not be here in the final version. Invalid addresses should not be sent by the FPGA.
+            if (addr & 0x3FFFFFFF) > 256:
+                self.logger.warning(f'Invalid address event at address {addr}')
+                continue
+
+            # Handle timestamp overflow
+            if ts == 0xFFFFFFFF:
+                self.logger.warning(f'Timestamp overflow event at address {addr}')
+                self.global_timestamp += ts
+                continue
+            
+            # Get the input index that is encoded in the 2 most significant bits.
+            input_idx = (addr & 0xC000_0000) >> 30
+            # Save the global timestamp and the address in the spike list corresponding with the input
+            spikes[input_idx].timestamps.append(self.global_timestamp + ts)
+            spikes[input_idx].addresses.append(addr & 0x3FFFFFFF) # Remove the input index from the address
+            
+            # Update global timestamp
+            self.global_timestamp += ts
+
+    def monitor(self, inputs=[], duration=None, max_spikes=None, live=False):
         """
         Get the information captured by the tool (ECU) and save it in different spikes structs depending on the selected
         inputs. First, the events/spikes are collected in the IMU, next are captured in the ECU putting a timestamp and 
         finally, events/spikes are sent from CU to PC by USB port. The information is read from the device while the number
-        of read bytes is less than the buffer length or the duration is not reached. The information is saved in a list of
-        spikes structs. Each struct contains the timestamps and addresses of the events/spikes captured in the same input:
-        - Input 0: port_a
-        - Input 1: port_b
-        - Input 2: port_c
-
-        :param inputs: List of strings that contains input port to capture. Possible values: 'port_a' 'port_b' 'port_c'
-        :param live: If True, the spikes are saved in a live buffer to be processed in real time.
-        :param max_spikes: Maximum number of spikes to be captured.
-        :param duration: Duration of the capture in seconds
-        :return: spikes: List of captured spikes (ts, addr) or None if live is True.
+        of read bytes is less than the buffer length or the duration is not reached. 
+            1. Duration-based: Monitor for a specific time period (duration parameter)
+            2. Spike-count based: Monitor until a specific number of spikes is captured (max_spikes parameter)
+            3. Live mode: Continuous monitoring until stop_monitor() is called (live=True)
+        The information is saved in a list of spikes structs. Each struct contains the timestamps and addresses of the 
+        events/spikes captured in the same input:
+            - Input 0: port_a
+            - Input 1: port_b
+            - Input 2: port_c
+        
+        :param inputs: List of input ports to capture. Possible values: 'port_a', 'port_b', 'port_c'
+        :param duration: Duration of capture in seconds (None for other modes)
+        :param max_spikes: Maximum number of spikes to capture (None for other modes)
+        :param live: If True, continuous monitoring mode until stop_monitor() is called
+        :return: List of Spikes objects (one per input), or None if in live mode
         """
-        # Check if the inputs are defined. If not, return None and log an error
+        # Validate inputs
         if len(inputs) == 0:
             self.logger.error('No inputs defined')
             return None
-        self.__select_inputs__(inputs=inputs)
-
-        # Define a list of spikes (ts, addr) to collect spikes from all inputs
-        spikes = [Spikes(addresses=[], timestamps=[]) for x in range(self.NUM_INPUTS)]
-        self.spikes = spikes
-        self.spikes_ready.set()
-
-        # Check if live is defined. If True, read the information from the device and save it in a live buffer.
-        if live is not None and live:
-            # Fix the buffer length to the USB_BLOCK_SIZE
-            buffer_length = self.USB_BLOCK_SIZE
-            buffer = bytearray(buffer_length)
-            buffer = np.array(buffer, dtype=np.uint8)
-            self.logger.info(f'Buffer length: {buffer_length}')
-            # Enable capture function
-            self.__select_command__(['monitor'])
-            self.is_monitoring = True
-            # Start counting the time
-            start_time = time.time()
-            # Read information from the device
-            num_read_bytes = 0
-            while self.is_monitoring:
-                num_read_bytes += self.device.ReadFromBlockPipeOut(self.OUTPIPE_ENDPOINT, self.USB_BLOCK_SIZE, buffer)
-                if num_read_bytes < 0:
-                    self.logger.error(f'Error at monitor: {ok.okCFrontPanel_GetErrorString(num_read_bytes)}')
-                    self.is_monitoring = False
-                    return None
-                try:
-                    # Split the information into the right spike input struct
-                    for b_idx in range(0, num_read_bytes, self.SPIKE_SIZE_BYTES):  # Each spike has a ts(4 bytes) and an addr(4bytes)
-                        ts = int.from_bytes(buffer[b_idx:b_idx+4], byteorder='little', signed=False)
-                        addr = int.from_bytes(buffer[b_idx+4:b_idx+8], byteorder='little', signed=False)
-                        # If the timestamp is 0 or the address is 0, the event is null and it is not saved
-                        if ts == 0 or addr == 0:
-                            continue
-                        # Check is ts is the maximum value of a 32-bit integer. This is a timestamp overflow event.
-                        if ts == 0xFFFFFFFF:
-                            self.logger.warning(f'Timestamp overflow event at address {addr}')
-                            # Update the global timestamp
-                            self.global_timestamp += ts
-                            continue
-                        
-                        # Get the input index that is encoded in the 2 most significant bits.
-                        input_idx = (addr & 0xC000_0000) >> 30
-                        with self.lock:
-                            # Update the self.spikes list with the new spikes
-                            if self.spikes is not None:
-                                # Save the global timestamp and the address in the spike list corresponding with the input
-                                self.spikes[input_idx].timestamps.append(self.global_timestamp + ts)
-                                self.spikes[input_idx].addresses.append(addr & 0x3FFFFFFF) # Remove the input index from the address
-                            else:
-                                self.spikes = spikes
-
-                        # Update the global timestamp
-                        self.global_timestamp += ts
-                        
-                except IndexError as e:
-                    self.logger.error(f'Error at live monitor: {e}')
-
-            # Disable capture function
-            self.__select_command__(['idle'])
-            # Stop counting the time
-            now = time.time()
-            self.logger.info(f'Live duration: {now-start_time} seconds')
+        
+        # Check that only one mode is selected
+        mode_count = sum([duration is not None, max_spikes is not None, live])
+        if mode_count > 1:
+            self.logger.error('Only one monitoring mode can be selected: duration, max_spikes, or live')
             return None
-
-        else:
-            # If the buffer length is defined, read the information from the device while the number of read bytes is less than
-            # the buffer length
-            if max_spikes is not None and duration is None:
-                # Calculate the size of the buffer in bytes according to the number of spikes to be read, the size of a spike and
-                # the size of the self.USB_BLOCK_SIZE. Buffer lenght must be an integer multiple of the self.USB_BLOCK_SIZE.
-                buffer_length = max_spikes * self.SPIKE_SIZE_BYTES
-                buffer_length = buffer_length + (self.USB_BLOCK_SIZE - (buffer_length % self.USB_BLOCK_SIZE))
-                self.logger.info(f'Buffer length: {buffer_length}')
-                buffer = bytearray(buffer_length)
-                buffer = np.array(buffer, dtype=np.uint8)
-                    
-                # Enable capture function
-                self.__select_command__(['monitor'])
-                self.is_monitoring = True
-                # Read information from the device
-                num_read_bytes = 0
-                # Start counting the time
-                start_time = time.time()
-                while num_read_bytes < buffer.size / self.SPIKE_SIZE_BYTES:
-                    num_read_bytes += self.device.ReadFromBlockPipeOut(self.OUTPIPE_ENDPOINT, self.USB_BLOCK_SIZE, buffer[num_read_bytes:])
-                    if num_read_bytes < 0:
-                        self.logger.error(f'Error at monitor: {ok.okCFrontPanel_GetErrorString(num_read_bytes)}')
-                        return None
-
-                # Stop counting the time
-                now = time.time()
-                # Disable capture function
-                self.__select_command__(['idle'])
-                self.is_monitoring = False
-
-            # If the duration is defined, read the information from the device while the duration is not reached
-            elif duration is not None and max_spikes is None:
-                # Fix the buffer length to the USB_BLOCK_SIZE
-                buffer_length = self.USB_BLOCK_SIZE
-                buffer = bytearray(buffer_length)
-                buffer = np.array(buffer, dtype=np.uint8)
-                self.logger.info(f'Buffer length: {buffer_length}')
-                # Create a global buffer to concatenate all information read from the device that is captured in the buffer array
-                global_buffer = bytearray()
-                global_buffer = np.array(global_buffer, dtype=np.uint8)
-                # Enable capture function
-                self.__select_command__(['monitor'])
-                self.is_monitoring = True
-                # Start counting the time
-                start_time = time.time()
-                # Read information from the device
-                num_read_bytes = 0
-                now = time.time()
-                while now - start_time < duration:
-                    num_read_bytes += self.device.ReadFromBlockPipeOut(self.OUTPIPE_ENDPOINT, self.USB_BLOCK_SIZE, buffer)
-                    if num_read_bytes < 0:
-                        self.logger.error(f'Error at monitor: {ok.okCFrontPanel_GetErrorString(num_read_bytes)}')
-                        return None
-                    # Concatenate the buffer with the global buffer
-                    global_buffer = np.concatenate((global_buffer, buffer))
-                    now = time.time()
-
-                # Disable capture function
-                self.__select_command__(['idle'])
-                self.is_monitoring = False
-                # Save the global buffer in the buffer variable
-                buffer = global_buffer
-
-            # If the duration and the number of spikes are defined, read the information from the device while the duration is not
-            # reached or the number of spikes is less than the maximum number of spikes
-            elif duration is not None and max_spikes is not None:
-                # Fix the buffer length to the USB_BLOCK_SIZE
-                buffer_length = self.USB_BLOCK_SIZE
-                buffer = bytearray(buffer_length)
-                buffer = np.array(buffer, dtype=np.uint8)
-                self.logger.info(f'Buffer length: {buffer_length}')
-                # Calculate the total buffer length according to the maximum number of spikes and the size of a spike
-                total_buffer_length = max_spikes * self.SPIKE_SIZE_BYTES
-                total_buffer_length = total_buffer_length + (self.USB_BLOCK_SIZE - (total_buffer_length % self.USB_BLOCK_SIZE))
-                # Create a global buffer to concatenate all information read from the device that is captured in the buffer array
-                global_buffer = bytearray()
-                global_buffer = np.array(global_buffer, dtype=np.uint8)
-
-                # Enable capture function
-                self.__select_command__(['monitor'])
-                self.is_monitoring = True
-                # Start counting the time
-                start_time = time.time()
-                # Read information from the device
-                num_read_bytes = 0
-                now = time.time()
-                while now - start_time < duration:
-                    num_read_bytes += self.device.ReadFromBlockPipeOut(self.OUTPIPE_ENDPOINT, self.USB_BLOCK_SIZE, buffer)
-                    if num_read_bytes < 0:
-                        self.logger.error(f'Error at monitor: {ok.okCFrontPanel_GetErrorString(num_read_bytes)}')
-                        return None
-                    # Concatenate the buffer with the global buffer
-                    global_buffer = np.concatenate((global_buffer, buffer))
-                    # If the number of read bytes is greater than the buffer length, break the loop
-                    if num_read_bytes >= total_buffer_length:
-                        break
-                    now = time.time()
-
-                # Disable capture function
-                self.__select_command__(['idle'])
-                self.is_monitoring = False
-                # Save the global buffer in the buffer variable
-                buffer = global_buffer
-
-            # If the number of spikes and the duration are not defined, read the information from the device until the is_monitoring
-            # flag is False. This functionality is implemented in the method monitor_forever()
-            else:
-                # Fix the buffer length to the USB_BLOCK_SIZE
-                buffer_length = self.USB_BLOCK_SIZE
-                buffer = bytearray(buffer_length)
-                buffer = np.array(buffer, dtype=np.uint8)
-                self.logger.info(f'Buffer length: {buffer_length}')
-                # Create a global buffer to concatenate all information read from the device that is captured in the buffer array
-                global_buffer = bytearray()
-                global_buffer = np.array(global_buffer, dtype=np.uint8)
-                # Enable capture function
-                self.__select_command__(['monitor'])
-                self.is_monitoring = True
-                # Start counting the time
-                start_time = time.time()
-                # Read information from the device
-                num_read_bytes = 0
-                while self.is_monitoring:
-                    num_read_bytes += self.device.ReadFromBlockPipeOut(self.OUTPIPE_ENDPOINT, self.USB_BLOCK_SIZE, buffer)
-                    if num_read_bytes < 0:
-                        self.logger.error(f'Error at monitor: {ok.okCFrontPanel_GetErrorString(num_read_bytes)}')
-                        return None
-                    # Concatenate the buffer with the global buffer
-                    global_buffer = np.concatenate((global_buffer, buffer))
-                # Stop counting the time
-                now = time.time()
-                # Disable capture function
-                self.__select_command__(['idle'])
-                self.is_monitoring = False
-                # Save the global buffer in the buffer variable
-                buffer = global_buffer
-                # Clean the self.spikes attribute
-                self.spikes = None
-
-            self.logger.info(f'Monitoring duration: {now-start_time} seconds') 
-            self.logger.info(f'Number of spikes: {int(num_read_bytes/self.SPIKE_SIZE_BYTES)}. Number of read bytes: {num_read_bytes}')
-
+        
+        # Select inputs
+        self.__select_inputs__(inputs=inputs)
+        
+        # Initialize spikes storage
+        spikes = [Spikes(addresses=[], timestamps=[]) for _ in range(self.NUM_INPUTS)]
+        
+        self.logger.info(f'USB buffer size: {self.USB_TRANSFER_LENGTH / (1024 * 1024):.2f} MB')
+        
+        # Clear the buffer queue
+        while not self.buffer_queue.empty():
             try:
-                # Split the information into the right spike input struct
-                for b_idx in range(0, num_read_bytes, self.SPIKE_SIZE_BYTES):  # Each spike has a ts(4 bytes) and an addr(4bytes)
-                    ts = int.from_bytes(buffer[b_idx:b_idx+4], byteorder='little', signed=False)
-                    addr = int.from_bytes(buffer[b_idx+4:b_idx+8], byteorder='little', signed=False)
-
-                    # If the timestamp is 0 or the address is 0, the event is null and it is not saved
-                    if ts == 0 or addr == 0:
-                        continue
-                    # Check is ts is the maximum value of a 32-bit integer. This is a timestamp overflow event.
-                    if ts == 0xFFFFFFFF:
-                        self.logger.warning(f'Timestamp overflow event at address {addr}')
-                        continue
-                    # Get the input index that is encoded in the 2 most significant bits.
-                    input_idx = (addr & 0xC000_0000) >> 30
-                    # Save the global timestamp and the address in the spike list corresponding with the input
-                    spikes[input_idx].timestamps.append(self.global_timestamp + ts)
-                    spikes[input_idx].addresses.append(addr & 0x3FFFFFFF) # Remove the input index from the address
-                    # Update the global timestamp
-                    self.global_timestamp += ts
+                self.buffer_queue.get_nowait()
+            except:
+                break
         
-            except IndexError as e:
-                self.logger.error(f'Error at monitor: {e}')
+        # Reset global timestamp
+        self.reset_timestamp
+        # Enable monitoring on FPGA
+        self.__select_command__(['monitor'])
 
-            # Return the list of spikes
-            # If the monitor_forever() method is used, the spikes are saved in the self.spikes attribute
-            self.spikes = spikes
+        # Start USB reader thread
+        self.stop_usb_thread.clear()
+        self.is_monitoring = True
+        self.usb_read_thread = threading.Thread(
+            target=self._usb_reader_thread, 
+            args=(self.USB_TRANSFER_LENGTH,),
+            daemon=True
+        )
+        self.usb_read_thread.start()
+        
+        # Start timing
+        start_time = time.time()
+        total_spikes = 0
+        
+        try:
+            # Main processing loop
+            while self.is_monitoring and not live:
+                # Check stopping conditions BEFORE waiting for data
+                if duration is not None:
+                    elapsed = time.time() - start_time
+                    if elapsed >= duration:
+                        self.logger.info(f'Duration limit reached: {elapsed:.2f} seconds')
+                        break
+                
+                # Get buffer from queue (with timeout to allow checking stop condition)
+                try:
+                    buffer = self.buffer_queue.get(timeout=2.0)
+                except:
+                    # Timeout - check if we should continue
+                    if self.usb_read_thread.is_alive():
+                        self.logger.warning("No data received in timeout period 2.0 seconds")
+                        continue
+                    else:
+                        self.logger.info("USB reader thread has stopped")
+                        break
+                
+                # Process the buffer
+                self._process_buffer(buffer, spikes)
+                total_spikes = sum(len(s.timestamps) for s in spikes)
+                
+                # Check max_spikes condition
+                if max_spikes is not None:
+                    if total_spikes >= max_spikes:
+                        self.logger.info(f'Spike limit reached: {total_spikes} spikes')
+                        # Trim to exact number if needed
+                        remaining = max_spikes
+                        for i in range(self.NUM_INPUTS):
+                            if remaining <= 0:
+                                spikes[i].timestamps = []
+                                spikes[i].addresses = []
+                            elif len(spikes[i].timestamps) > remaining:
+                                spikes[i].timestamps = spikes[i].timestamps[:remaining]
+                                spikes[i].addresses = spikes[i].addresses[:remaining]
+                                remaining = 0
+                            else:
+                                remaining -= len(spikes[i].timestamps)
+                        break
+                
+                # In live mode, continue until stop_monitor() is called
+        
+        finally:
+            # Stop monitoring
+            if not live or not self.is_monitoring:
+                self.is_monitoring = False
+                self.stop_usb_thread.set()
+                self.__select_command__(['idle'])
+                
+                # Wait for USB thread to finish
+                if self.usb_read_thread and self.usb_read_thread.is_alive():
+                    self.usb_read_thread.join(timeout=2.0)
+                
+                # Log statistics
+                elapsed = time.time() - start_time
+                self.logger.info(f'Monitoring completed: {elapsed:.2f} seconds, {total_spikes} spikes captured')
+        
+        # Return results (None for live mode, spikes for other modes)
+        if live:
+            return None
+        else:
             return spikes
-
-    
-    def monitor_forever(self, inputs=[]):
-        """
-        Get the information captured by the tool (ECU) and save it in different spikes structs depending on the selected
-        inputs. First, the events/spikes are collected in the IMU, next are captured in the ECU putting a timestamp and 
-        finally, events/spikes are sent from CU to PC by USB port. The information is read from the device while the flag
-        is_monitoring is True. The information is saved in a list of spikes structs. Each struct contains the timestamps and
-        addresses of the events/spikes captured in the same input:
-        - Input 0: port_a
-        - Input 1: port_b
-        - Input 2: port_c
-
-        :return: spikes: List of captured spikes (ts, addr)
-        """
-        self.logger.info('Monitoring forever started in a new thread') 
-        self.monitor_thread = threading.Thread(target=self.monitor, args=(inputs, None, None, None))
-        self.monitor_thread.start()
-
-
-    def monitor_stop(self):
-        """
-        Stop the monitoring forever thread.
         
-        :return:
-        """
-        self.logger.info('Monitoring forever stopped')
-        self.is_monitoring = False
-        self.monitor_thread.join()
-        return self.spikes
-    
 
-    def live_monitor(self, inputs=[]):
-        """
-        Get the information captured by the tool (ECU) and copy it to a live buffer to be processed in real time. The information read
-        from the device is processed getting the timestamps and addresses of the events/spikes captured in the same input:
-        - Input 0: port_a
-        - Input 1: port_b
-        - Input 2: port_c
-        The timestamps and addresses are saved in a list of spikes that can be accessed using the get_live_spikes() method.
-        """
-        self.logger.info('Live monitoring started in a new thread') 
-        self.monitor_thread = threading.Thread(target=self.monitor, args=(inputs, True, None, None))
-        self.monitor_thread.start()
-
-    
     def get_live_spikes(self):
         """
-        Get the spikes captured in the live buffer. The spikes are saved in the self.spikes attribute.
-        :return: spikes: List of captured spikes (ts, addr) or None if no spikes are captured.
+        Get spikes captured during live monitoring. This method returns accumulated spikes
+        and clears the internal buffer.
+        
+        :return: List of Spikes objects, one per input
         """
-        with self.lock:
-            if self.spikes is not None:
-                spikes = self.spikes
-                self.spikes = None
-                return spikes
-            else:
-                return None
+        if not self.is_monitoring:
+            self.logger.warning('Not in live monitoring mode')
+            return None
+        
+        # Create a snapshot of current spikes
+        spikes = [Spikes(addresses=[], timestamps=[]) for _ in range(self.NUM_INPUTS)]
+        
+        # Process all available buffers
+        while not self.buffer_queue.empty():
+            try:
+                buffer = self.buffer_queue.get_nowait()
+                self._process_buffer(buffer, spikes)
+            except:
+                break
+        
+        return spikes if sum(len(s.timestamps) for s in spikes) > 0 else None
 
 
-    def live_monitor_stop(self):
+    def stop_monitor(self):
         """
-        Stop the live monitoring thread.
+        Stop live monitoring and return all captured spikes.
+        
+        :return: List of Spikes objects containing all captured data
         """
-        self.logger.info('Live monitoring stopped')
+        if not self.is_monitoring:
+            self.logger.warning('Not currently monitoring')
+            return None
+        
+        self.logger.info('Stopping live monitor')
+        
+        # Signal stop
         self.is_monitoring = False
-        self.monitor_thread.join()
+        self.stop_usb_thread.set()
+        
+        # Wait for USB thread to finish
+        if self.usb_read_thread and self.usb_read_thread.is_alive():
+            self.usb_read_thread.join(timeout=2.0)
+        
+        # Process any remaining buffers
+        spikes = [Spikes(addresses=[], timestamps=[]) for _ in range(self.NUM_INPUTS)]
+        while not self.buffer_queue.empty():
+            try:
+                buffer = self.buffer_queue.get_nowait()
+                self._process_buffer(buffer, spikes)
+            except:
+                break
+        
+        # Disable FPGA monitoring
+        self.__select_command__(['idle'])
+        
+        total_spikes = sum(len(s.timestamps) for s in spikes)
+        self.logger.info(f'Live monitoring stopped: {total_spikes} spikes captured')
+        
+        return spikes
 
 
     def bypass(self, inputs=[]):
@@ -564,6 +536,7 @@ class Okaertool:
         self.logger.info(f'Bypassing data over {inputs}')
         self.__select_inputs__(inputs=inputs)
         self.__select_command__('bypass')
+
 
     def sequencer(self, file):
         """
@@ -581,6 +554,7 @@ class Okaertool:
         num_sent_bytes = self.device.WriteToBlockPipeIn(self.INPIPE_ENDPOINT, self.USB_BLOCK_SIZE, buffer)
         self.logger.info(f'Number of sent bytes:  {num_sent_bytes}. Number of sent spikes: {num_sent_bytes/self.SPIKE_SIZE_BYTES}')
         self.__select_command__('idle')
+
 
     def set_config(self, device, register_address, register_value):
         """
@@ -620,4 +594,3 @@ class Okaertool:
         self.logger.info(f'Configuring {device} with address {hex(register_address)} and value {hex(register_value)}')
         return 0
 
-        

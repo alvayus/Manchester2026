@@ -206,6 +206,11 @@ begin
 					ECU_usb_ready <= '0';
 				end if;
 			end if;
+			-- if ECU_fifo_fill_count > FIFO_ALM_EMPTY_OFFSET then
+			-- 	ECU_usb_ready <= '1';
+			-- else
+			-- 	ECU_usb_ready <= '0';
+			-- end if;
 		end if;
 	end process;
 

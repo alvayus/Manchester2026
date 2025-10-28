@@ -79,7 +79,7 @@ architecture Behavioral of okt_cu is
 
 	-- DEBUG
 	attribute MARK_DEBUG : string; 
-	attribute MARK_DEBUG of rst_n, rst_sw, okUH, okHU, okUHU, okAA, ecu_data, ecu_rd, ecu_ready, osu_data, 
+	attribute MARK_DEBUG of rst_n, rst_sw, ecu_data, ecu_rd, ecu_ready, osu_data, 
 							osu_wr, osu_ready, input_sel, status, cmd, config_data, config_addr, config_en, 
 							n_command, n_input_sel, n_rst_sw, okClk, okHE, okEH, okEHx, ep00wire, ep01wire, 
 							ep02wire, ep03wire, epA0_datain, epA0_read, epA0_blockstrobe, epA0_ready, ep80_dataout, 
@@ -212,29 +212,29 @@ begin
 			-- Default assignment
         	status <= (others => '0');  -- Set all LEDs off by default
 			
-			status(NUM_INPUTS - 1 downto 0) <= not n_input_sel; -- Set input selection led
+			-- status(NUM_INPUTS - 1 downto 0) <= not n_input_sel; -- Set input selection led
 
-			if ((n_command and Mask_MON) = Mask_MON) then -- MON command. Send out captured event to USB
-				status(NUM_INPUTS) <= '1'; -- Set MON led
-			end if;
+			-- if ((n_command and Mask_MON) = Mask_MON) then -- MON command. Send out captured event to USB
+			-- 	status(NUM_INPUTS) <= '1'; -- Set MON led
+			-- end if;
 
-			if ((n_command and Mask_PASS) = Mask_PASS) then -- PASS command. Send out inputs events through NODE_IN output
-				status(NUM_INPUTS + 1) <= '1'; -- Set PASS led
-			end if;
+			-- if ((n_command and Mask_PASS) = Mask_PASS) then -- PASS command. Send out inputs events through NODE_IN output
+			-- 	status(NUM_INPUTS + 1) <= '1'; -- Set PASS led
+			-- end if;
 
-			if ((n_command and Mask_SEQ) = Mask_SEQ) then -- SEQ command. Send out inputs events through NODE_IN output
-				status(NUM_INPUTS + 2) <= '1'; -- Set SEQ led
-			end if;
+			-- if ((n_command and Mask_SEQ) = Mask_SEQ) then -- SEQ command. Send out inputs events through NODE_IN output
+			-- 	status(NUM_INPUTS + 2) <= '1'; -- Set SEQ led
+			-- end if;
 
-			if (((n_command and Mask_CONF_1) = Mask_CONF_1) 
-				or ((n_command and Mask_CONF_2) = Mask_CONF_2)
-				or ((n_command and Mask_CONF_3) = Mask_CONF_3)) then -- CONF command. Send out configuration data through NODE_IN output
-				status(NUM_INPUTS + 3) <= '0'; -- Set CONF led
-			end if;
+			-- if (((n_command and Mask_CONF_1) = Mask_CONF_1) 
+			-- 	or ((n_command and Mask_CONF_2) = Mask_CONF_2)
+			-- 	or ((n_command and Mask_CONF_3) = Mask_CONF_3)) then -- CONF command. Send out configuration data through NODE_IN output
+			-- 	status(NUM_INPUTS + 3) <= '0'; -- Set CONF led
+			-- end if;
 
-			if (n_rst_sw = '1') then    -- Software reset. Set all led on
-				status <= (others => '0');
-			end if;
+			-- if (n_rst_sw = '1') then    -- Software reset. Set all led on
+			-- 	status <= (others => '0');
+			-- end if;
 
 			if (epA0_read = '1' or ep80_write = '1') then -- ECU or OSU read/write. Set MSB led on
 				status(LEDS_BITS_WIDTH - 1) <= '0'; -- Set MSB led
