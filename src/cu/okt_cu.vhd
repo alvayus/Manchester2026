@@ -12,7 +12,8 @@ entity okt_cu is                        -- Control Unit
 	Port(
 		clk         : out   std_logic;  -- 100.8 MHz
 		rst_n       : in    std_logic;
-		rst_sw      : out   std_logic;  -- sw rst coming from the USB trigger end-point
+		rst_sw_int  : out   std_logic;  -- sw rst to internal modules
+		rst_sw_ext  : out   std_logic;  -- sw rst to external modules
 		-- USB 3.0 interface
 		okUH        : in    std_logic_vector(OK_UH_WIDTH_BUS - 1 downto 0);
 		okHU        : out   std_logic_vector(OK_HU_WIDTH_BUS - 1 downto 0);
@@ -41,9 +42,10 @@ end okt_cu;
 
 architecture Behavioral of okt_cu is
 	-- CU Signals
-	signal n_command   : std_logic_vector(COMMAND_BIT_WIDTH - 1 downto 0);
-	signal n_input_sel : std_logic_vector(NUM_INPUTS - 1 downto 0);
-	signal n_rst_sw    : std_logic;
+	signal n_command   	: std_logic_vector(COMMAND_BIT_WIDTH - 1 downto 0);
+	signal n_input_sel 	: std_logic_vector(NUM_INPUTS - 1 downto 0);
+	signal n_rst_sw_int : std_logic;
+	signal n_rst_sw_ext : std_logic;
 
 	-- ECU Signals
 	-- signal n_ecu_data  : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
@@ -79,9 +81,9 @@ architecture Behavioral of okt_cu is
 
 	-- DEBUG
 	attribute MARK_DEBUG : string; 
-	attribute MARK_DEBUG of rst_n, rst_sw, ecu_data, ecu_rd, ecu_ready, osu_data, 
+	attribute MARK_DEBUG of rst_n, rst_sw_int, ecu_data, ecu_rd, ecu_ready, osu_data, 
 							osu_wr, osu_ready, input_sel, status, cmd, config_data, config_addr, config_en, 
-							n_command, n_input_sel, n_rst_sw, okClk, okHE, okEH, okEHx, ep00wire, ep01wire, 
+							n_command, n_input_sel, n_rst_sw_int, okClk, okHE, okEH, okEHx, ep00wire, ep01wire, n_rst_sw_ext,
 							ep02wire, ep03wire, epA0_datain, epA0_read, epA0_blockstrobe, epA0_ready, ep80_dataout, 
 							ep80_write, ep80_blockstrobe, ep80_ready : signal is "TRUE";
 
@@ -103,9 +105,10 @@ begin
 	-- osu_wr      <= n_osu_wr;
 	-- n_osu_ready <= osu_ready;
 
-	input_sel <= n_input_sel;
-	cmd       <= n_command;
-	rst_sw    <= n_rst_sw;
+	input_sel 	<= n_input_sel;
+	cmd       	<= n_command;
+	rst_sw_int  <= n_rst_sw_int;
+	rst_sw_ext 	<= n_rst_sw_ext;
 
 	--okHI : work.FRONTPANEL.okHost
 	okHI : okHost
@@ -152,7 +155,8 @@ begin
 			ep_addr    => x"02",
 			ep_dataout => ep02wire
 		);
-	n_rst_sw <= ep02wire(0);
+	n_rst_sw_int <= ep02wire(0);
+	n_rst_sw_ext <= ep02wire(1);
 
 	-- WireIn to receive configuration data from USB
 	config_EP : okWireIn
@@ -204,7 +208,7 @@ begin
 	end process;
 
 	-- Multiplexer that select the data path depending of the command
-	leds_status : process(n_command, n_input_sel, epA0_read, ep80_write, n_rst_sw, rst_n)
+	leds_status : process(epA0_read, ep80_write,  rst_n)
 	begin
 		if (rst_n = '0') then
 			status <= (others => '0');  -- Set all status led off

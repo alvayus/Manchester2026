@@ -131,7 +131,7 @@ begin
 				if (n_command(0) = '0') then
 					n_timestamp <= (others => '0');
 					n_okt_ecu_control_state <= idle;
-					
+
 				elsif (ecu_req_n = '0' and n_command(0) = '1') then
 					n_okt_ecu_control_state <= req_fall_0;
 
@@ -184,11 +184,11 @@ begin
 	end process;
 
 	control_ECU_usb_ready : process(clk, rst_n) is
-		variable usb_burst : integer range 0 to USB_BURST_WORDS;
+		-- variable usb_burst : integer range 0 to USB_BURST_WORDS;
 	begin
 		if rst_n = '0' then
 			ECU_usb_ready         <= '0';
-			usb_burst             := 0;
+			-- usb_burst             := 0;
 			ECU_fifo_r_en_end     <= '0';
 			ECU_fifo_r_en_latched <= '0';
 
@@ -201,20 +201,20 @@ begin
 				ECU_fifo_r_en_end <= '0';
 			end if;
 
-			if ECU_fifo_fill_count > FIFO_ALM_EMPTY_OFFSET then
-				ECU_usb_ready <= '1';
-				usb_burst     := USB_BURST_WORDS;
-			elsif ECU_usb_ready = '1' then
-				usb_burst := usb_burst - 1;
-				if usb_burst = 0 or ECU_fifo_r_en_end = '1' then
-					ECU_usb_ready <= '0';
-				end if;
-			end if;
 			-- if ECU_fifo_fill_count > FIFO_ALM_EMPTY_OFFSET then
 			-- 	ECU_usb_ready <= '1';
-			-- else
-			-- 	ECU_usb_ready <= '0';
+			-- 	usb_burst     := USB_BURST_WORDS;
+			-- elsif ECU_usb_ready = '1' then
+			-- 	usb_burst := usb_burst - 1;
+			-- 	if usb_burst = 0 or ECU_fifo_r_en_end = '1' then
+			-- 		ECU_usb_ready <= '0';
+			-- 	end if;
 			-- end if;
+			if ECU_fifo_fill_count > FIFO_ALM_EMPTY_OFFSET then
+				ECU_usb_ready <= '1';
+			else
+				ECU_usb_ready <= '0';
+			end if;
 		end if;
 	end process;
 

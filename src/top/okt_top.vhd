@@ -137,7 +137,7 @@
 -- 			--TODO: Implement OSU command latch
 -- 			out_ack_n_latch_0 <= out_ack_n;
 -- 			out_ack_n_latch_1 <= out_ack_n_latch_0;
-			
+
 -- 			rst_ext_n_latch_0 <= rst_ext_n;
 -- 			rst_ext_n_latch_1 <= rst_ext_n_latch_0;
 
@@ -171,7 +171,6 @@
 
 -- 		end if;
 -- 	end process;
-
 
 -- 	cu_inst : entity work.okt_cu
 -- 		port map(
@@ -258,7 +257,6 @@
 
 -- end Behavioral;
 
-
 library IEEE;
 use IEEE.std_logic_1164.ALL;
 use work.okt_global_pkg.all;
@@ -269,60 +267,61 @@ entity okt_top is
 	port(
 		--        sys_clkp     : in    std_logic; -- The clock is generated in CU module
 		--        sys_clkn     : in    std_logic;
-		rst_ext_n      : in    std_logic;
-		clock          : out   std_logic; -- 100.8 MHz
-		rst_sw_n	 : out    std_logic;
+		rst_ext_n    : in    std_logic;
+		clock        : out   std_logic; -- 100.8 MHz
+		rst_sw_n     : out   std_logic;
 		-- USB 3.0 interface
-		okUH           : in    std_logic_vector(OK_UH_WIDTH_BUS - 1 downto 0);
-		okHU           : out   std_logic_vector(OK_HU_WIDTH_BUS - 1 downto 0);
-		okUHU          : inout std_logic_vector(OK_UHU_WIDTH_BUS - 1 downto 0);
-		okAA           : inout std_logic;
+		okUH         : in    std_logic_vector(OK_UH_WIDTH_BUS - 1 downto 0);
+		okHU         : out   std_logic_vector(OK_HU_WIDTH_BUS - 1 downto 0);
+		okUHU        : inout std_logic_vector(OK_UHU_WIDTH_BUS - 1 downto 0);
+		okAA         : inout std_logic;
 		-- AER INPUT interfaces
-		port_a_data    : in    std_logic_vector(ROME_DATA_BITS_WIDTH - 1 downto 0);
-		port_a_req_n   : in    std_logic;
-		port_a_ack_n   : out   std_logic;
-		port_b_data    : in    std_logic_vector(ROME_DATA_BITS_WIDTH - 1 downto 0);
-		port_b_req_n   : in    std_logic;
-		port_b_ack_n   : out   std_logic;
-		port_c_data      : in    std_logic_vector(NODE_DATA_BITS_WIDTH - 1 downto 0);
-		port_c_req_n     : in    std_logic;
+		port_a_data  : in    std_logic_vector(ROME_DATA_BITS_WIDTH - 1 downto 0);
+		port_a_req_n : in    std_logic;
+		port_a_ack_n : out   std_logic;
+		port_b_data  : in    std_logic_vector(ROME_DATA_BITS_WIDTH - 1 downto 0);
+		port_b_req_n : in    std_logic;
+		port_b_ack_n : out   std_logic;
+		port_c_data  : in    std_logic_vector(NODE_DATA_BITS_WIDTH - 1 downto 0);
+		port_c_req_n : in    std_logic;
 		port_c_ack_n : out   std_logic;
 		-- AER OUTPUT interface
-		out_data       : out   std_logic_vector(OUT_DATA_BITS_WIDTH - 1 downto 0);
-		out_req_n      : out   std_logic;
-		out_ack_n      : in    std_logic;
+		out_data     : out   std_logic_vector(OUT_DATA_BITS_WIDTH - 1 downto 0);
+		out_req_n    : out   std_logic;
+		out_ack_n    : in    std_logic;
 		-- Configuration interface
-		config_data    : out   std_logic_vector(CONFIG_BITS_WIDTH - 1 downto 0);
-		config_addr    : out   std_logic_vector(CONFIG_BITS_WIDTH - 1 downto 0);
-		config_en      : out   std_logic_vector(CONFIG_NUN_DEVICES - 1 downto 0);
+		config_data  : out   std_logic_vector(CONFIG_BITS_WIDTH - 1 downto 0);
+		config_addr  : out   std_logic_vector(CONFIG_BITS_WIDTH - 1 downto 0);
+		config_en    : out   std_logic_vector(CONFIG_NUN_DEVICES - 1 downto 0);
 		-- Status leds
-		leds           : out   std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0)
+		leds         : out   std_logic_vector(LEDS_BITS_WIDTH - 1 downto 0)
 	);
 end okt_top;
 
 architecture Behavioral of okt_top is
 	--sys signals
-	signal okClk  : std_logic;
-	signal rst_n  : std_logic;
-	signal rst_sw : std_logic;
+	signal okClk      : std_logic;
+	signal rst_n      : std_logic;
+	signal rst_sw     : std_logic;
+	signal rst_sw_int : std_logic;
 
 	--latch signals
-	signal port_a_req_latch_0 : std_logic;
-	signal port_a_req_latch_1 : std_logic;
+	signal port_a_req_latch_0  : std_logic;
+	signal port_a_req_latch_1  : std_logic;
 	signal port_a_data_latch_0 : std_logic_vector(ROME_DATA_BITS_WIDTH - 1 downto 0);
 	signal port_a_data_latch_1 : std_logic_vector(ROME_DATA_BITS_WIDTH - 1 downto 0);
-	signal port_b_req_latch_0 : std_logic;
-	signal port_b_req_latch_1 : std_logic;
+	signal port_b_req_latch_0  : std_logic;
+	signal port_b_req_latch_1  : std_logic;
 	signal port_b_data_latch_0 : std_logic_vector(ROME_DATA_BITS_WIDTH - 1 downto 0);
 	signal port_b_data_latch_1 : std_logic_vector(ROME_DATA_BITS_WIDTH - 1 downto 0);
-	signal port_c_req_latch_0   : std_logic;
-	signal port_c_req_latch_1   : std_logic;
+	signal port_c_req_latch_0  : std_logic;
+	signal port_c_req_latch_1  : std_logic;
 	signal port_c_data_latch_0 : std_logic_vector(NODE_DATA_BITS_WIDTH - 1 downto 0);
 	signal port_c_data_latch_1 : std_logic_vector(NODE_DATA_BITS_WIDTH - 1 downto 0);
-	signal out_ack_n_latch_0 : std_logic;
-	signal out_ack_n_latch_1 : std_logic;
-	signal rst_ext_n_latch_0 : std_logic;
-	signal rst_ext_n_latch_1 : std_logic;
+	signal out_ack_n_latch_0   : std_logic;
+	signal out_ack_n_latch_1   : std_logic;
+	signal rst_ext_n_latch_0   : std_logic;
+	signal rst_ext_n_latch_1   : std_logic;
 
 	--cu signals
 	signal in_ecu_data   : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
@@ -330,7 +329,7 @@ architecture Behavioral of okt_top is
 	signal in_ecu_ready  : std_logic;
 	signal out_osu_data  : std_logic_vector(BUFFER_BITS_WIDTH - 1 downto 0);
 	signal out_osu_wr    : std_logic;
-	signal out_osu_ready : std_logic;
+	signal out_osu_ready : std_logic := '0'; -- TODO: remove initialization
 	signal input_sel     : std_logic_vector(NUM_INPUTS - 1 downto 0);
 
 	--imu signals
@@ -347,72 +346,74 @@ architecture Behavioral of okt_top is
 
 	--osu signals
 	-- signal osu_ack       : std_logic;
-	signal osu_imu_ack_n : std_logic;
+	signal osu_imu_ack_n : std_logic := '1'; -- TODO: remove initialization
 	signal ecu_osu_ack_n : std_logic;
 
 	-- DEBUG
-	attribute MARK_DEBUG : string;
+	attribute MARK_DEBUG              : string;
 	attribute MARK_DEBUG of status_cu : signal is "TRUE";
 
 begin
 
 	-- 0 = led on; 1 = led off 
-	-- leds  <= not (status_ecu(2 downto 0) & "000" & status_cu(1 downto 0));
-	leds  <= not (status_cu(LEDS_BITS_WIDTH - 1 ) & "0000" & status_ecu(2 downto 0));
+	-- XEM6310 LEDS on when 0, LEDS off when 1
+	leds     <= not (status_cu(LEDS_BITS_WIDTH - 1) & "0000" & status_ecu(2 downto 0));
+	-- XEM7310 LEDS on when 0, LEDS off when 'Z'
+	-- TODO: Adjust for XEM7310
 	-- leds <= status_cu;
-	rst_n <= rst_ext_n_latch_1 and (not rst_sw);
-	clock <= okClk;
+	rst_n    <= rst_ext_n_latch_1 and (not rst_sw_int);
+	clock    <= okClk;
 	rst_sw_n <= not rst_sw;
 
 	-- Sync input signals
 	syncronizer : process(okClk, rst_n)
 	begin
 		if (rst_n = '0') then
-			port_a_req_latch_0 <= '1';
-			port_a_req_latch_1 <= '1';
+			port_a_req_latch_0  <= '1';
+			port_a_req_latch_1  <= '1';
 			port_a_data_latch_0 <= (others => '0');
 			port_a_data_latch_1 <= (others => '0');
-			port_b_req_latch_0 <= '1';
-			port_b_req_latch_1 <= '1';
+			port_b_req_latch_0  <= '1';
+			port_b_req_latch_1  <= '1';
 			port_b_data_latch_0 <= (others => '0');
 			port_b_data_latch_1 <= (others => '0');
-			port_c_req_latch_0   <= '1';
-			port_c_req_latch_1   <= '1';
+			port_c_req_latch_0  <= '1';
+			port_c_req_latch_1  <= '1';
 			port_c_data_latch_0 <= (others => '0');
 			port_c_data_latch_1 <= (others => '0');
-			out_ack_n_latch_0 <= '1';
-			out_ack_n_latch_1 <= '1';
-			rst_ext_n_latch_0 <= '1';
-			rst_ext_n_latch_1 <= '1';
+			out_ack_n_latch_0   <= '1';
+			out_ack_n_latch_1   <= '1';
+			rst_ext_n_latch_0   <= '1';
+			rst_ext_n_latch_1   <= '1';
 
 		elsif rising_edge(okClk) then
-			port_a_req_latch_0 <= port_a_req_n;
-			port_a_req_latch_1 <= port_a_req_latch_0;
+			port_a_req_latch_0  <= port_a_req_n;
+			port_a_req_latch_1  <= port_a_req_latch_0;
 			port_a_data_latch_0 <= port_a_data;
 			port_a_data_latch_1 <= port_a_data_latch_0;
-			port_b_req_latch_0 <= port_b_req_n;
-			port_b_req_latch_1 <= port_b_req_latch_0;
+			port_b_req_latch_0  <= port_b_req_n;
+			port_b_req_latch_1  <= port_b_req_latch_0;
 			port_b_data_latch_0 <= port_b_data;
 			port_b_data_latch_1 <= port_b_data_latch_0;
-			port_c_req_latch_0   <= port_c_req_n;
-			port_c_req_latch_1   <= port_c_req_latch_0;
+			port_c_req_latch_0  <= port_c_req_n;
+			port_c_req_latch_1  <= port_c_req_latch_0;
 			port_c_data_latch_0 <= port_c_data;
 			port_c_data_latch_1 <= port_c_data_latch_0;
-			out_ack_n_latch_0 <= out_ack_n;
-			out_ack_n_latch_1 <= out_ack_n_latch_0;
-			rst_ext_n_latch_0 <= rst_ext_n;
-			rst_ext_n_latch_1 <= rst_ext_n_latch_0;
+			out_ack_n_latch_0   <= out_ack_n;
+			out_ack_n_latch_1   <= out_ack_n_latch_0;
+			rst_ext_n_latch_0   <= rst_ext_n;
+			rst_ext_n_latch_1   <= rst_ext_n_latch_0;
 
 		end if;
 	end process;
-
 
 	cu_inst : entity work.okt_cu
 		port map(
 			--SYS
 			clk         => okClk,
 			rst_n       => rst_n,
-			rst_sw      => rst_sw,
+			rst_sw_int  => rst_sw_int,
+			rst_sw_ext  => rst_sw,
 			--USB
 			okUH        => okUH,
 			okHU        => okHU,
