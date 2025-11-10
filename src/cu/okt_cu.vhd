@@ -165,11 +165,11 @@ begin
 			ep_addr    => x"03",
 			ep_dataout => ep03wire
 		);
-	config_en(0) <= '1' when ((n_command and Mask_CONF_1) = Mask_CONF_1) else '0';
-	config_en(1) <= '1' when ((n_command and Mask_CONF_2) = Mask_CONF_2) else '0';
-	config_en(2) <= '1' when ((n_command and Mask_CONF_3) = Mask_CONF_3) else '0';
-	config_data  <= ep03wire(CONFIG_BITS_WIDTH - 1 downto 0);
-	config_addr  <= ep03wire(2 * CONFIG_BITS_WIDTH - 1 downto CONFIG_BITS_WIDTH);
+	-- config_en(0) <= '1' when ((n_command and Mask_CONF_1) = Mask_CONF_1) else '0';
+	-- config_en(1) <= '1' when ((n_command and Mask_CONF_2) = Mask_CONF_2) else '0';
+	-- config_en(2) <= '1' when ((n_command and Mask_CONF_3) = Mask_CONF_3) else '0';
+	-- config_data  <= ep03wire(CONFIG_BITS_WIDTH - 1 downto 0);
+	-- config_addr  <= ep03wire(2 * CONFIG_BITS_WIDTH - 1 downto CONFIG_BITS_WIDTH);
 
 	--PipeOut to send data out using the USB
 	data_out_EP : okBTPipeOut
@@ -195,15 +195,47 @@ begin
 			ep_ready       => ep80_ready
 		);
 
+	-- -- Reset command and input_sel signals
+	-- process(rst_n, ep00wire, ep01wire)
+	-- begin
+	-- 	if (rst_n = '0') then
+	-- 		n_command   <= (others => '0');
+	-- 		n_input_sel <= (others => '0');
+	-- 	else
+	-- 		n_command   <= ep00wire(COMMAND_BIT_WIDTH - 1 downto 0);
+	-- 		n_input_sel <= ep01wire(NUM_INPUTS - 1 downto 0);
+	-- 	end if;
+	-- end process;
 	-- Reset command and input_sel signals
-	process(rst_n, ep00wire, ep01wire)
+	signal_update : process(okClk, rst_n)
 	begin
 		if (rst_n = '0') then
 			n_command   <= (others => '0');
 			n_input_sel <= (others => '0');
-		else
+			config_en   <= (others => '0');
+			config_data  <= (others => '0');
+			config_addr  <= (others => '0');
+			
+		elsif rising_edge(okClk) then
 			n_command   <= ep00wire(COMMAND_BIT_WIDTH - 1 downto 0);
 			n_input_sel <= ep01wire(NUM_INPUTS - 1 downto 0);
+			if(((n_command and Mask_CONF_1) = Mask_CONF_1)) then
+				config_en(0) <= '1';
+			else
+				config_en(0) <= '0';
+			end if;
+			if(((n_command and Mask_CONF_2) = Mask_CONF_2)) then
+				config_en(1) <= '1';
+			else
+				config_en(1) <= '0';
+			end if;
+			if(((n_command and Mask_CONF_3) = Mask_CONF_3)) then
+				config_en(2) <= '1';
+			else
+				config_en(2) <= '0';
+			end if;
+			config_data  <= ep03wire(CONFIG_BITS_WIDTH - 1 downto 0);
+			config_addr  <= ep03wire(2 * CONFIG_BITS_WIDTH - 1 downto CONFIG_BITS_WIDTH);
 		end if;
 	end process;
 
