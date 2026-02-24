@@ -1,0 +1,11 @@
+Repositorio: 
+- https://github.com/RTC-research-group/okaertool/tree/master?tab=readme-ov-file
+- https://github.com/jpdominguez/RT_NAS_Visualizer
+
+Para instalar Python: Python install manager
+
+Uso Visual Studio Code. Python 3.14. Creo venv con Ctrl + Shift + P y luego le paso a Copilot el pip install pyokaertool. También le paso a Copilot el pip install de pyNAVIS y del resto de cosas necesarias.
+
+XEM6310. Conectar cable Jack. Más seguro trabajar en modo duration que en live
+
+Instalar también sounddevice y soundfile
