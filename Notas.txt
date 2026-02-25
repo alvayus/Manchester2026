@@ -8,4 +8,4 @@ Uso Visual Studio Code. Python 3.14. Creo venv con Ctrl + Shift + P y luego le p
 
 XEM6310. Conectar cable Jack. Más seguro trabajar en modo duration que en live
 
-Instalar también sounddevice y soundfile
+Instalar también sounddevice, soundfile y AERzip
