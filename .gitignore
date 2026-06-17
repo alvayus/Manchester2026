@@ -1,4 +1,7 @@
 Dataset/
-Code/okaertool.log
 Compressed files/
+*.aedat
 Plots/
+*.png
+*.log
+*.pyc
