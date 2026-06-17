@@ -24,7 +24,7 @@ def cross_correlate(recorded_signal, chirp_signal, mode="full", plot=False):
     return chirp_start_index
 
 
-def find_chirp_start(recording_file_path, chirp_file_path, plot=False):
+def find_chirp_end(recording_file_path, chirp_file_path, plot=False):
     if not os.path.exists(chirp_file_path):
         raise FileNotFoundError(f"Default chirp template not found at: {chirp_file_path}")
 
@@ -47,16 +47,20 @@ def find_chirp_start(recording_file_path, chirp_file_path, plot=False):
         starts.append(cross_correlate(recorded_signal[:, i], chirp_signal))
 
     mean_start = int(np.mean(starts))
-    fig, ax = plt.subplots(3)
-    ax[0].plot(recorded_signal[:, 0])
-    ax[1].plot(chirp_signal)
-    ax[1].set_xlim(0, recorded_signal.shape[0])
-    ax[1].plot(recorded_signal[mean_start:, 0], color="r")
+    chirp_end_index = mean_start + len(chirp_signal)
 
     if plot:
+        fig, ax = plt.subplots(3)
+        ax[0].plot(recorded_signal[:, 0])
+        ax[1].plot(chirp_signal)
+        ax[1].set_xlim(0, recorded_signal.shape[0])
+        ax[1].plot(recorded_signal[mean_start:, 0], color="r")
+        ax[0].axvline(mean_start, color="green", linestyle="--", label="Detected chirp start")
+        ax[0].axvline(chirp_end_index, color="red", linestyle="--", label="Detected chirp end")
+        ax[0].legend()
         plt.show()
 
-    return mean_start, mean_start / recorded_sample_rate
+    return chirp_end_index, chirp_end_index / recorded_sample_rate
 
 
 def find_interesting_audio_end(
@@ -170,24 +174,24 @@ if __name__ == "__main__":
         print(f"Recording file: {recording_file_path}")
         print(f"Chirp file: {chirp_file_path}")
 
-        chirp_start_index = 0
-        chirp_start_time = 0.0
+        chirp_end_index = 0
+        chirp_end_time = 0.0
         try:
-            chirp_start_index, chirp_start_time = find_chirp_start(
+            chirp_end_index, chirp_end_time = find_chirp_end(
                 recording_file_path,
                 chirp_file_path,
                 plot=False,
             )
         except Exception as exc:
-            print(f"Could not detect start time from chirp template: {exc}")
+            print(f"Could not detect chirp end time from chirp template: {exc}")
 
         audio_end_index, audio_end_time = find_interesting_audio_end(
             recording_file_path,
-            start_index=chirp_start_index,
+            start_index=chirp_end_index,
             plot=True,
         )
 
-        print(f"Interesting audio likely starts at index: {chirp_start_index}")
-        print(f"This corresponds to time: {chirp_start_time} seconds")
+        print(f"Interesting audio processing should start at index: {chirp_end_index}")
+        print(f"This corresponds to time: {chirp_end_time} seconds")
         print(f"Interesting audio likely ends at index: {audio_end_index}")
         print(f"This corresponds to time: {audio_end_time} seconds")
