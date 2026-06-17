@@ -143,6 +143,7 @@ def find_interesting_audio_end(
         plt.plot(time_axis, rms, alpha=0.35, label="Frame RMS")
         plt.plot(time_axis, smoothed_rms, label="Smoothed RMS (~200 ms)")
         plt.axhline(threshold, color="orange", linestyle="--", label="Threshold (3x noise floor)")
+        plt.axvline(start_index / sample_rate, color="green", linestyle="--", label="Detected start")
         plt.axvline(end_index / sample_rate, color="red", linestyle="--", label="Detected end")
         plt.xlabel("Time (s)")
         plt.ylabel("RMS")
