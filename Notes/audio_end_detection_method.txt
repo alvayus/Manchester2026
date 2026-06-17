@@ -1,0 +1,33 @@
+Simple Audio Trimming Method (Speech -> Residual Noise)
+
+Goal: Detect where speech ends and only background noise remains, then
+trim the audio.
+
+Implementation:
+
+1.  Split the audio into frames of about 25 ms.
+
+2.  For each frame, compute RMS energy: RMS = sqrt(mean(samples^2))
+
+3.  Smooth the RMS values using a moving average over roughly 200 ms.
+    This reduces false detections caused by brief pauses or
+    fluctuations.
+
+4.  Estimate the noise floor from the final 1 second of the recording
+    (assuming it contains only residual noise).
+
+5.  Define a threshold: threshold = noise_floor * 3
+
+6.  Starting from the end of the file and moving backward, find the last
+    frame whose smoothed RMS exceeds the threshold.
+
+7.  Add a safety margin of 200–300 ms after that point.
+
+8.  Trim everything after the adjusted endpoint.
+
+Why this works: - Extremely fast (O(N)) - No machine learning required -
+Robust enough for recordings containing speech followed by background
+noise - Easy to implement in any language
+
+Suggested parameters: - Frame length: 25 ms - Smoothing window: 200 ms -
+Threshold: 3 × noise floor - Safety margin: 200–300 ms
