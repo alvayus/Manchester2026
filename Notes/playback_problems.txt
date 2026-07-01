@@ -3,3 +3,5 @@
 - It has been tested to start monitoring few seconds before the playback starts. However, the problem persists. This indicates the problem is related to the transmission of the audio data or to the time stamps.
 
 - It's not a problem related to the trim of the audio data.
+
+- The behavior of the code is as expected if the audio is only played on the laptop speakers
