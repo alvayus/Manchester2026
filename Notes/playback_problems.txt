@@ -1,3 +1,5 @@
 - The output plots show some inconsistencies: 1) They usually start with silence for around 0.5 seconds. 2) Sometimes the duration of the plots is lower than the played audio data, which is not possible.
 
 - It has been tested to start monitoring few seconds before the playback starts. However, the problem persists. This indicates the problem is related to the transmission of the audio data or to the time stamps.
+
+- It's not a problem related to the trim of the audio data.
