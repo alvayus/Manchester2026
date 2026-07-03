@@ -5,3 +5,5 @@
 - It's not a problem related to the trim of the audio data.
 
 - The behavior of the code is as expected if the audio is only played on the laptop speakers
+
+- TODO: Try with another jack 3.5mm cable
