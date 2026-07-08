@@ -1,8 +1,9 @@
 Dataset/
-Dataset_Trim/
+Dataset (Trim)/
 Compressed files/
 *.aedat
 Plots/
 *.png
 *.log
 *.pyc
+
